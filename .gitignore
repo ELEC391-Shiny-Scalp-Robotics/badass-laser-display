@@ -1,0 +1,48 @@
+### Altium ###
+# Previews Folders
+**/__Previews/
+# History Folders
+**/History/*
+# Project Logs
+Project Logs*/
+# Project Outputs
+Project Outputs*/
+# Auto-conversion notices
+*.PcbDoc.htm
+# Access lock file for dbLib sources
+**/*.ldb
+# Document Local Metadata
+*.metadata
+
+### LTspice ###
+# Logfile
+*.log
+# Simulation Outputs
+*.raw
+*.fft
+# Netlist
+*.net
+
+### MATLAB ###
+# Windows default autosave extension
+*.asv
+# OSX / *nix default autosave extension
+*.m~
+# Compiled MEX binaries (all platforms)
+*.mex*
+# Packaged app and toolbox files
+*.mlappinstall
+*.mltbx
+# Generated helpsearch folders
+helpsearch*/
+# Simulink code generation folders
+slprj/
+sccprj/
+# Matlab code generation folders
+codegen/
+# Simulink autosave extension
+*.autosave
+# Simulink cache files
+*.slxc
+# Octave session info
+octave-workspace
