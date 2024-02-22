@@ -19,8 +19,7 @@
 #define __MAIN_H
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /* Includes ------------------------------------------------------------------*/
@@ -131,6 +130,7 @@ void Error_Handler(void);
 #define HTIM_ENCY htim3
 #define HTIM_MOT htim1
 #define HTIM_WS htim4
+#define HTIM_CTRL htim7
 
 #define TIM_CHANNEL_WS TIM_CHANNEL_1
 #define TIM_CHANNEL_MOT_XA TIM_CHANNEL_1

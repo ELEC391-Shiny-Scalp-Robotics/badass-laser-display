@@ -47,6 +47,7 @@ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
+TIM_HandleTypeDef htim7;
 DMA_HandleTypeDef hdma_tim4_ch1;
 
 UART_HandleTypeDef huart1;
@@ -75,7 +76,11 @@ static void MX_TIM4_Init(void);
 static void MX_TIM5_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_I2C3_Init(void);
+static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
+void ParseCommand(void);
+void SerialPrint(const char *str);
+bool StringStartsWith(const char *str, const char *prefix);
 void WsSet(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
 void WsSetAll(uint8_t r, uint8_t g, uint8_t b);
 void EEPROMRead(uint8_t regAddr, uint8_t *pData, uint8_t size);
@@ -126,6 +131,7 @@ int main(void)
     MX_TIM5_Init();
     MX_USART1_UART_Init();
     MX_I2C3_Init();
+    MX_TIM7_Init();
     /* USER CODE BEGIN 2 */
     HAL_TIM_Encoder_Start(&HTIM_ENCX, TIM_CHANNEL_ALL);
     HAL_TIM_Encoder_Start(&HTIM_ENCY, TIM_CHANNEL_ALL);
@@ -146,7 +152,6 @@ int main(void)
             FSMState = TEST;
         }
     }
-
     /* USER CODE END 2 */
 
     /* Infinite loop */
@@ -254,7 +259,9 @@ int main(void)
                         {
                             FSMState = RGB;
                         }
-                    } else {
+                    }
+                    else
+                    {
                         Uart1.txCounter = sprintf((char *)Uart1.txBuffer, "invalid command\n");
                         HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
                     }
@@ -271,20 +278,22 @@ int main(void)
             HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
 
             // stop control loop
-            // HAL_TIM_Base_Stop_IT(&...);
+            HAL_TIM_Base_Stop_IT(&HTIM_CTRL);
 
             // load eeprom for Kp, Kd, offset, homing speed
             // EEPROMRead(...);
 
             // home motors
-            // MotorSetSpeed(X, -HomingSpeed);
+            // MotorSetSpeed(X, HomingSpeed);
             // wait for Stop
             // MotorSetSpeed(X, 0);
+            // __HAL_TIM_SET_COUNTER(&HTIM_ENCX, MotorX.offset);
             // ...
             // MotorSetSpeed(Y, 0);
+            // __HAL_TIM_SET_COUNTER(&HTIM_ENCY, -MotorY.offset);
 
             // start control loop
-            // HAL_TIM_Base_Start_IT(&...);
+            // HAL_TIM_Base_Start_IT(&HTIM_CTRL);
 
             FSMState = SERIAL;
 
@@ -299,19 +308,7 @@ int main(void)
 
             while (FSMState == SERIAL)
             {
-                if (CommandReady)
-                {
-                    FSMIsParsing = TRUE;
-
-                    // parse commands
-                    // strncmp, sscanf, etc.
-
-                    CommandReady = FALSE;
-                    FSMIsParsing = FALSE;
-
-                    Uart1.txCounter = sprintf((char *)Uart1.txBuffer, "ok\n");
-                    HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
-                }
+                ParseCommand();
             }
         }
 
@@ -321,16 +318,7 @@ int main(void)
             {
                 // draw square
 
-                if (CommandReady)
-                {
-                    FSMIsParsing = TRUE;
-
-                    // parse commands
-                    // strncmp, sscanf, etc.
-
-                    CommandReady = FALSE;
-                    FSMIsParsing = FALSE;
-                }
+                ParseCommand();
             }
         }
 
@@ -429,20 +417,6 @@ int main(void)
                 }
             }
         }
-
-        // int16_t encoderx = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
-        // int16_t encodery = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
-
-        // Uart1.txCounter = sprintf((char *)Uart1.txBuffer, "Encoder X: %d, Encoder Y: %d\n", encoderx, encodery);
-        // HAL_UART_Transmit_IT(&huart1, Uart1.txBuffer, Uart1.txCounter);
-        // HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
-
-        // MotorSetSpeed(X, 1200);
-        // MotorSetSpeed(Y, 1200);
-
-        // MotorSetSpeed(X, -1200);
-        // MotorSetSpeed(Y, -1200);
-
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
@@ -587,7 +561,7 @@ static void MX_TIM1_Init(void)
     htim1.Init.Period = 4800 - 1;
     htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
     htim1.Init.RepetitionCounter = 0;
-    htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+    htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
     if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
     {
         Error_Handler();
@@ -714,7 +688,7 @@ static void MX_TIM4_Init(void)
     htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
     htim4.Init.Period = 150 - 1;
     htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-    htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+    htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
     if (HAL_TIM_PWM_Init(&htim4) != HAL_OK)
     {
         Error_Handler();
@@ -785,6 +759,43 @@ static void MX_TIM5_Init(void)
     /* USER CODE BEGIN TIM5_Init 2 */
 
     /* USER CODE END TIM5_Init 2 */
+}
+
+/**
+ * @brief TIM7 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM7_Init(void)
+{
+
+    /* USER CODE BEGIN TIM7_Init 0 */
+
+    /* USER CODE END TIM7_Init 0 */
+
+    TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+    /* USER CODE BEGIN TIM7_Init 1 */
+
+    /* USER CODE END TIM7_Init 1 */
+    htim7.Instance = TIM7;
+    htim7.Init.Prescaler = 0;
+    htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim7.Init.Period = 48000 - 1;
+    htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+    if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+    {
+        Error_Handler();
+    }
+    sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+    sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+    if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+    {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN TIM7_Init 2 */
+
+    /* USER CODE END TIM7_Init 2 */
 }
 
 /**
@@ -923,6 +934,17 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim == &HTIM_CTRL)
+    {
+        // control loop
+
+        // int16_t encoderx = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
+        // int16_t encodery = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
+    }
+}
+
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim == &HTIM_WS)
@@ -965,6 +987,37 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
     if (huart == &huart1)
     {
     }
+}
+
+void ParseCommand(void)
+{
+    if (CommandReady)
+    {
+        FSMIsParsing = TRUE;
+
+        // parse commands
+        // strncmp, sscanf, etc.
+
+        CommandReady = FALSE;
+        FSMIsParsing = FALSE;
+    }
+}
+
+void SerialPrint(const char *str)
+{
+    Uart1.txCounter = sprintf((char *)Uart1.txBuffer, str);
+    HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
+}
+
+bool StringStartsWith(const char *str, const char *prefix)
+{
+    uint32_t n = strlen(prefix);
+    for (int i = 0; i < n; i++)
+    {
+        if (str[i] != prefix[i])
+            return FALSE;
+    }
+    return TRUE;
 }
 
 void WsSet(uint8_t index, uint8_t r, uint8_t g, uint8_t b)
