@@ -79,7 +79,6 @@ static void MX_I2C3_Init(void);
 static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
 void ParseCommand(void);
-void SerialPrint(const char *str);
 bool StringStartsWith(const char *str, const char *prefix);
 void WsSet(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
 void WsSetAll(uint8_t r, uint8_t g, uint8_t b);
@@ -160,8 +159,7 @@ int main(void)
     {
         if (FSMState == TEST)
         {
-            Uart1.txCounter = sprintf((char *)Uart1.txBuffer, "test mode start\n");
-            HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
+            SerialPrint("test mode start\n");
 
             while (FSMState == TEST)
             {
@@ -169,11 +167,11 @@ int main(void)
                 {
                     FSMIsParsing = TRUE;
 
-                    if (strncmp((char *)Uart1.rxBuffer, "rom", sizeof("rom") - 1) == 0)
+                    if (StringStartsWith((char *)Uart1.rxBuffer, "rom"))
                     {
                         char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("rom")]);
 
-                        if (strncmp(pBuffer, "dump", sizeof("dump") - 1) == 0)
+                        if (StringStartsWith(pBuffer, "dump"))
                         {
                             Uart1.txCounter = 0;
                             uint8_t data[16];
@@ -192,7 +190,7 @@ int main(void)
 
                             HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
                         }
-                        else if (strncmp(pBuffer, "write", sizeof("write") - 1) == 0)
+                        else if (StringStartsWith(pBuffer, "write"))
                         {
                             int addr, wdata;
                             if (sscanf(&pBuffer[sizeof("write")], "%x %x", &addr, &wdata) == 2)
@@ -201,7 +199,7 @@ int main(void)
                                 EEPROMWrite((uint8_t)addr, &data, 1);
                             }
                         }
-                        else if (strncmp(pBuffer, "read", sizeof("read") - 1) == 0)
+                        else if (StringStartsWith(pBuffer, "read"))
                         {
                             int addr;
                             if (sscanf(&pBuffer[sizeof("read")], "%x", &addr) == 1)
@@ -209,12 +207,11 @@ int main(void)
                                 uint8_t data;
                                 EEPROMRead((uint8_t)addr, &data, 1);
 
-                                Uart1.txCounter = sprintf((char *)Uart1.txBuffer, "%02x: %02x\n", addr, data);
-                                HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
+                                SerialPrint("%02x: %02x\n", addr, data);
                             }
                         }
                     }
-                    else if (strncmp((char *)Uart1.rxBuffer, "led", sizeof("led") - 1) == 0)
+                    else if (StringStartsWith((char *)Uart1.rxBuffer, "led"))
                     {
                         uint16_t index, state;
                         if (sscanf((char *)&Uart1.rxBuffer[sizeof("led")], "%hu %hu", &index, &state) == 2)
@@ -236,7 +233,7 @@ int main(void)
                             }
                         }
                     }
-                    else if (strncmp((char *)Uart1.rxBuffer, "laser", sizeof("laser") - 1) == 0)
+                    else if (StringStartsWith((char *)Uart1.rxBuffer, "laser"))
                     {
                         uint16_t state;
                         if (sscanf((char *)&Uart1.rxBuffer[sizeof("laser")], "%hu", &state) == 1)
@@ -247,23 +244,22 @@ int main(void)
                                 LaserTurn(OFF);
                         }
                     }
-                    else if (strncmp((char *)Uart1.rxBuffer, "mode", sizeof("mode") - 1) == 0)
+                    else if (StringStartsWith((char *)Uart1.rxBuffer, "mode"))
                     {
                         char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("mode")]);
 
-                        if (strncmp(pBuffer, "rb", sizeof("rb") - 1) == 0)
+                        if (StringStartsWith(pBuffer, "rb"))
                         {
                             FSMState = RB;
                         }
-                        else if (strncmp(pBuffer, "rgb", sizeof("rgb") - 1) == 0)
+                        else if (StringStartsWith(pBuffer, "rgb"))
                         {
                             FSMState = RGB;
                         }
                     }
                     else
                     {
-                        Uart1.txCounter = sprintf((char *)Uart1.txBuffer, "invalid command\n");
-                        HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
+                        SerialPrint("invalid command\n");
                     }
 
                     CommandReady = FALSE;
@@ -274,8 +270,7 @@ int main(void)
 
         if (FSMState == INIT)
         {
-            Uart1.txCounter = sprintf((char *)Uart1.txBuffer, "init start\n");
-            HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
+            SerialPrint("init start\n");
 
             // stop control loop
             HAL_TIM_Base_Stop_IT(&HTIM_CTRL);
@@ -297,14 +292,12 @@ int main(void)
 
             FSMState = SERIAL;
 
-            Uart1.txCounter = sprintf((char *)Uart1.txBuffer, "init finish\n");
-            HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
+            SerialPrint("init finish\n");
         }
 
         if (FSMState == SERIAL)
         {
-            Uart1.txCounter = sprintf((char *)Uart1.txBuffer, "serial mode start\n");
-            HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
+            SerialPrint("serial mode start\n");
 
             while (FSMState == SERIAL)
             {
@@ -380,7 +373,7 @@ int main(void)
                 {
                     FSMIsParsing = TRUE;
 
-                    if (strncmp((char *)Uart1.rxBuffer, "test", sizeof("test") - 1) == 0)
+                    if (StringStartsWith((char *)Uart1.rxBuffer, "test"))
                     {
                         WsSetAll(0, 0, 0);
                         WsShow();
@@ -409,11 +402,19 @@ int main(void)
                     HAL_Delay(5);
                 }
 
-                if (strncmp((char *)Uart1.rxBuffer, "test", sizeof("test") - 1) == 0)
+                if (CommandReady)
                 {
-                    WsSetAll(0, 0, 0);
-                    WsShow();
-                    FSMState = TEST;
+                    FSMIsParsing = TRUE;
+
+                    if (StringStartsWith((char *)Uart1.rxBuffer, "test"))
+                    {
+                        WsSetAll(0, 0, 0);
+                        WsShow();
+                        FSMState = TEST;
+                    }
+
+                    CommandReady = FALSE;
+                    FSMIsParsing = FALSE;
                 }
             }
         }
@@ -934,6 +935,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim == &HTIM_CTRL)
@@ -1001,12 +1003,6 @@ void ParseCommand(void)
         CommandReady = FALSE;
         FSMIsParsing = FALSE;
     }
-}
-
-void SerialPrint(const char *str)
-{
-    Uart1.txCounter = sprintf((char *)Uart1.txBuffer, str);
-    HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
 }
 
 bool StringStartsWith(const char *str, const char *prefix)

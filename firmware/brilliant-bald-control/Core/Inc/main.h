@@ -143,9 +143,12 @@ void Error_Handler(void);
 #define WS2812_PULSE_1 100
 #define WS2812_PULSE_0 50
 #define MOT_PWM_PERIOD 4800
-#define UART_TIMEOUT 500
+#define UART_TIMEOUT 250
 
 #define WsShow() HAL_TIM_PWM_Start_DMA(&HTIM_WS, TIM_CHANNEL_WS, (uint32_t *)WsBuffer, sizeof(WsBuffer))
+#define SerialPrint(str, ...)                                                          \
+    Uart1.txCounter = sprintf((char *)Uart1.txBuffer, str __VA_OPT__(, ) __VA_ARGS__); \
+    HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
