@@ -159,118 +159,17 @@ int main(void)
     {
         if (FSMState == TEST)
         {
-            SerialPrint("test mode start\n");
+            SerialPrint("test mode\n");
 
             while (FSMState == TEST)
             {
-                if (CommandReady)
-                {
-                    FSMIsParsing = TRUE;
-
-                    if (StringStartsWith((char *)Uart1.rxBuffer, "rom"))
-                    {
-                        char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("rom")]);
-
-                        if (StringStartsWith(pBuffer, "dump"))
-                        {
-                            Uart1.txCounter = 0;
-                            uint8_t data[16];
-
-                            for (int i = 0; i < 16; i++)
-                            {
-                                EEPROMRead(i * 16, data, 16);
-                                Uart1.txCounter += sprintf((char *)&Uart1.txBuffer[Uart1.txCounter], "%02x:", i * 16);
-
-                                for (int j = 0; j < 16; j++)
-                                {
-                                    Uart1.txCounter += sprintf((char *)&Uart1.txBuffer[Uart1.txCounter], " %02x", data[j]);
-                                }
-                                Uart1.txCounter += sprintf((char *)&Uart1.txBuffer[Uart1.txCounter], "\n");
-                            }
-
-                            HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
-                        }
-                        else if (StringStartsWith(pBuffer, "write"))
-                        {
-                            int addr, wdata;
-                            if (sscanf(&pBuffer[sizeof("write")], "%x %x", &addr, &wdata) == 2)
-                            {
-                                uint8_t data = (uint8_t)wdata;
-                                EEPROMWrite((uint8_t)addr, &data, 1);
-                            }
-                        }
-                        else if (StringStartsWith(pBuffer, "read"))
-                        {
-                            int addr;
-                            if (sscanf(&pBuffer[sizeof("read")], "%x", &addr) == 1)
-                            {
-                                uint8_t data;
-                                EEPROMRead((uint8_t)addr, &data, 1);
-
-                                SerialPrint("%02x: %02x\n", addr, data);
-                            }
-                        }
-                    }
-                    else if (StringStartsWith((char *)Uart1.rxBuffer, "led"))
-                    {
-                        uint16_t index, state;
-                        if (sscanf((char *)&Uart1.rxBuffer[sizeof("led")], "%hu %hu", &index, &state) == 2)
-                        {
-                            switch (index)
-                            {
-                            case 1:
-                                HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
-                                break;
-                            case 2:
-                                HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
-                                break;
-                            case 3:
-                                HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
-                                break;
-                            case 4:
-                                HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
-                                break;
-                            }
-                        }
-                    }
-                    else if (StringStartsWith((char *)Uart1.rxBuffer, "laser"))
-                    {
-                        uint16_t state;
-                        if (sscanf((char *)&Uart1.rxBuffer[sizeof("laser")], "%hu", &state) == 1)
-                        {
-                            if (state)
-                                LaserTurn(ON);
-                            else
-                                LaserTurn(OFF);
-                        }
-                    }
-                    else if (StringStartsWith((char *)Uart1.rxBuffer, "mode"))
-                    {
-                        char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("mode")]);
-
-                        if (StringStartsWith(pBuffer, "rb"))
-                        {
-                            FSMState = RB;
-                        }
-                        else if (StringStartsWith(pBuffer, "rgb"))
-                        {
-                            FSMState = RGB;
-                        }
-                    }
-                    else
-                    {
-                        SerialPrint("invalid command\n");
-                    }
-
-                    CommandReady = FALSE;
-                    FSMIsParsing = FALSE;
-                }
+                ParseCommand();
             }
         }
 
         if (FSMState == INIT)
         {
-            SerialPrint("init start\n");
+            SerialPrint("init\n");
 
             // stop control loop
             HAL_TIM_Base_Stop_IT(&HTIM_CTRL);
@@ -286,18 +185,17 @@ int main(void)
             // ...
             // MotorSetSpeed(Y, 0);
             // __HAL_TIM_SET_COUNTER(&HTIM_ENCY, -MotorY.offset);
+            // reset motor structs
 
             // start control loop
             // HAL_TIM_Base_Start_IT(&HTIM_CTRL);
 
             FSMState = SERIAL;
-
-            SerialPrint("init finish\n");
         }
 
         if (FSMState == SERIAL)
         {
-            SerialPrint("serial mode start\n");
+            SerialPrint("serial mode\n");
 
             while (FSMState == SERIAL)
             {
@@ -307,6 +205,8 @@ int main(void)
 
         if (FSMState == MEMORY_SQUARE)
         {
+            SerialPrint("square mode\n");
+
             while (FSMState == MEMORY_SQUARE)
             {
                 // draw square
@@ -371,18 +271,10 @@ int main(void)
 
                 if (CommandReady)
                 {
-                    FSMIsParsing = TRUE;
-
-                    if (StringStartsWith((char *)Uart1.rxBuffer, "test"))
-                    {
-                        WsSetAll(0, 0, 0);
-                        WsShow();
-                        FSMState = TEST;
-                    }
-
-                    CommandReady = FALSE;
-                    FSMIsParsing = FALSE;
+                    WsSetAll(0, 0, 0);
+                    WsShow();
                 }
+                ParseCommand();
             }
         }
 
@@ -392,30 +284,22 @@ int main(void)
             {
                 for (int i = 0; i < 256; i++)
                 {
-                    uint8_t r = (uint8_t)((cos(i / 256.0 * 2 * M_PI) * 127.0 + 127.5) * 0.05);
-                    uint8_t g = (uint8_t)((cos((i / 256.0 - 1.0 / 3.0) * 2 * M_PI) * 127.0 + 127.5) * 0.05);
-                    uint8_t b = (uint8_t)((cos((i / 256.0 - 2.0 / 3.0) * 2 * M_PI) * 127.0 + 127.5) * 0.05);
+                    uint8_t r = (uint8_t)((cos(i / 256.0 * 2 * M_PI) * 127.0 + 127.0) * 0.08);
+                    uint8_t g = (uint8_t)((cos((i / 256.0 - 1.0 / 3.0) * 2 * M_PI) * 127.0 + 127.0) * 0.08);
+                    uint8_t b = (uint8_t)((cos((i / 256.0 - 2.0 / 3.0) * 2 * M_PI) * 127.0 + 127.0) * 0.08);
 
                     WsSetAll(r, g, b);
 
                     WsShow();
-                    HAL_Delay(5);
+                    HAL_Delay(10);
                 }
 
                 if (CommandReady)
                 {
-                    FSMIsParsing = TRUE;
-
-                    if (StringStartsWith((char *)Uart1.rxBuffer, "test"))
-                    {
-                        WsSetAll(0, 0, 0);
-                        WsShow();
-                        FSMState = TEST;
-                    }
-
-                    CommandReady = FALSE;
-                    FSMIsParsing = FALSE;
+                    WsSetAll(0, 0, 0);
+                    WsShow();
                 }
+                ParseCommand();
             }
         }
         /* USER CODE END WHILE */
@@ -997,8 +881,137 @@ void ParseCommand(void)
     {
         FSMIsParsing = TRUE;
 
-        // parse commands
-        // strncmp, sscanf, etc.
+        if (StringStartsWith((char *)Uart1.rxBuffer, "rom"))
+        {
+            char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("rom")]);
+
+            if (StringStartsWith(pBuffer, "dump"))
+            {
+                Uart1.txCounter = 0;
+                uint8_t data[16];
+
+                for (int i = 0; i < 16; i++)
+                {
+                    EEPROMRead(i * 16, data, 16);
+                    Uart1.txCounter += sprintf((char *)&Uart1.txBuffer[Uart1.txCounter], "%02x:", i * 16);
+
+                    for (int j = 0; j < 16; j++)
+                    {
+                        Uart1.txCounter += sprintf((char *)&Uart1.txBuffer[Uart1.txCounter], " %02x", data[j]);
+                    }
+                    Uart1.txCounter += sprintf((char *)&Uart1.txBuffer[Uart1.txCounter], "\n");
+                }
+
+                HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
+            }
+            else if (StringStartsWith(pBuffer, "write"))
+            {
+                int addr, wdata;
+                if (sscanf(&pBuffer[sizeof("write")], "%x %x", &addr, &wdata) == 2)
+                {
+                    uint8_t data = (uint8_t)wdata;
+                    EEPROMWrite((uint8_t)addr, &data, 1);
+                }
+            }
+            else if (StringStartsWith(pBuffer, "read"))
+            {
+                int addr;
+                if (sscanf(&pBuffer[sizeof("read")], "%x", &addr) == 1)
+                {
+                    uint8_t data;
+                    EEPROMRead((uint8_t)addr, &data, 1);
+
+                    SerialPrint("%02x: %02x\n", addr, data);
+                }
+            }
+        }
+        else if (StringStartsWith((char *)Uart1.rxBuffer, "laser"))
+        {
+            uint16_t state;
+            if (sscanf((char *)&Uart1.rxBuffer[sizeof("laser")], "%hu", &state) == 1)
+            {
+                if (state)
+                    LaserTurn(ON);
+                else
+                    LaserTurn(OFF);
+            }
+            else
+            {
+                SerialPrint("invalid laser arg\n");
+            }
+        }
+        else if (StringStartsWith((char *)Uart1.rxBuffer, "led"))
+        {
+            uint16_t index, state;
+            if (sscanf((char *)&Uart1.rxBuffer[sizeof("led")], "%hu %hu", &index, &state) == 2)
+            {
+                switch (index)
+                {
+                case 1:
+                    HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
+                    break;
+                case 2:
+                    HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
+                    break;
+                case 3:
+                    HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
+                    break;
+                case 4:
+                    HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, state ? GPIO_PIN_SET : GPIO_PIN_RESET);
+                    break;
+                }
+            }
+            else
+            {
+                SerialPrint("invalid led arg\n");
+            }
+        }
+        else if (StringStartsWith((char *)Uart1.rxBuffer, "rgb"))
+        {
+            uint16_t index, r, g, b;
+            if (sscanf((char *)&Uart1.rxBuffer[sizeof("rgb")], "%hu %hu %hu %hu", &index, &r, &g, &b) == 4)
+            {
+                WsSet(index, r, g, b);
+                WsShow();
+            }
+            else
+            {
+                SerialPrint("invalid rgb arg\n");
+            }
+        }
+        else if (StringStartsWith((char *)Uart1.rxBuffer, "mode"))
+        {
+            char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("mode")]);
+
+            if (StringStartsWith(pBuffer, "test"))
+            {
+                FSMState = TEST;
+            }
+            else if (StringStartsWith(pBuffer, "init"))
+            {
+                FSMState = INIT;
+            }
+            else if (StringStartsWith(pBuffer, "serial"))
+            {
+                FSMState = SERIAL;
+            }
+            else if (StringStartsWith(pBuffer, "rb"))
+            {
+                FSMState = RB;
+            }
+            else if (StringStartsWith(pBuffer, "rgb"))
+            {
+                FSMState = RGB;
+            }
+            else
+            {
+                SerialPrint("invalid mode\n");
+            }
+        }
+        else
+        {
+            SerialPrint("invalid command\n");
+        }
 
         CommandReady = FALSE;
         FSMIsParsing = FALSE;
@@ -1007,8 +1020,7 @@ void ParseCommand(void)
 
 bool StringStartsWith(const char *str, const char *prefix)
 {
-    uint32_t n = strlen(prefix);
-    for (int i = 0; i < n; i++)
+    for (uint8_t i = 0; prefix[i] != 0; i++)
     {
         if (str[i] != prefix[i])
             return FALSE;
@@ -1045,7 +1057,7 @@ void WsSet(uint8_t index, uint8_t r, uint8_t g, uint8_t b)
 
 void WsSetAll(uint8_t r, uint8_t g, uint8_t b)
 {
-    for (int index = 0; index < 2 * 24; index += 24)
+    for (uint8_t index = 0; index < 2 * 24; index += 24)
     {
         uint8_t i = 0, mask;
         for (mask = 0x80; mask > 0; i++, mask >>= 1)
