@@ -219,52 +219,28 @@ int main(void)
         {
             while (FSMState == RB)
             {
-                for (int j = 0; j < 3; j++)
-                {
-                    WsSetAll(0, 0, 0);
-                    for (int i = 0; i < 3; i++)
-                    {
-                        WsSet(0, 0, 0, 0);
-                        WsShow();
-                        HAL_Delay(50);
-                        WsSet(0, 30, 0, 0);
-                        WsShow();
-                        HAL_Delay(50);
-                    }
-                    HAL_Delay(100);
-                    WsSetAll(0, 0, 0);
-                    for (int i = 0; i < 3; i++)
-                    {
-                        WsSet(1, 0, 0, 0);
-                        WsShow();
-                        HAL_Delay(50);
-                        WsSet(1, 0, 0, 30);
-                        WsShow();
-                        HAL_Delay(50);
-                    }
-                    HAL_Delay(100);
-                }
-
                 for (int j = 0; j < 2; j++)
                 {
-                    for (int i = 0; i < 3; i++)
+                    WsSetAll(0, 0, 0);
+                    for (int i = 0; i < 2; i++)
                     {
-                        WsSetAll(30, 0, 0);
+                        WsSet(j, 0, 0, 0);
                         WsShow();
-                        HAL_Delay(75);
-                        WsSetAll(0, 0, 0);
+                        HAL_Delay(50);
+                        WsSet(j, 30, 0, 0);
                         WsShow();
-                        HAL_Delay(75);
+                        HAL_Delay(50);
                     }
                     HAL_Delay(100);
-                    for (int i = 0; i < 3; i++)
+                    WsSetAll(0, 0, 0);
+                    for (int i = 0; i < 2; i++)
                     {
-                        WsSetAll(0, 0, 30);
+                        WsSet(j, 0, 0, 0);
                         WsShow();
-                        HAL_Delay(75);
-                        WsSetAll(0, 0, 0);
+                        HAL_Delay(50);
+                        WsSet(j, 0, 0, 30);
                         WsShow();
-                        HAL_Delay(75);
+                        HAL_Delay(50);
                     }
                     HAL_Delay(100);
                 }
