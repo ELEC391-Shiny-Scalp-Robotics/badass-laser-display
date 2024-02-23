@@ -984,6 +984,10 @@ void ParseCommand(void)
                 SerialPrint("invalid mode\n");
             }
         }
+        else if (StringStartsWith((char *)Uart1.rxBuffer, "hardware reset"))
+        {
+            NVIC_SystemReset();
+        }
         else
         {
             SerialPrint("invalid command\n");
