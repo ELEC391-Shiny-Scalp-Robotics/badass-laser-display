@@ -800,10 +800,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim == &HTIM_CTRL)
     {
+        // HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
+
         // control loop
 
         // int16_t encoderx = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
         // int16_t encodery = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
+        
+        // HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
     }
 }
 
@@ -853,67 +857,40 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 
 void ParseCommand(void)
 {
+    ParseStatusTypeDef status = OK;
+
     if (CommandReady)
     {
         FSMIsParsing = TRUE;
 
-        if (StringStartsWith((char *)Uart1.rxBuffer, "rom"))
+        if (StringStartsWith((char *)Uart1.rxBuffer, "move"))
         {
-            char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("rom")]);
-
-            if (StringStartsWith(pBuffer, "dump"))
+            double x, y;
+            uint16_t steps;
+            if (sscanf((char *)&Uart1.rxBuffer[sizeof("move")], "%lf %lf %hu", &x, &y, &steps) == 3)
             {
-                Uart1.txCounter = 0;
-                uint8_t data[16];
-
-                for (int i = 0; i < 16; i++)
-                {
-                    EEPROMRead(i * 16, data, 16);
-                    Uart1.txCounter += sprintf((char *)&Uart1.txBuffer[Uart1.txCounter], "%02x:", i * 16);
-
-                    for (int j = 0; j < 16; j++)
-                    {
-                        Uart1.txCounter += sprintf((char *)&Uart1.txBuffer[Uart1.txCounter], " %02x", data[j]);
-                    }
-                    Uart1.txCounter += sprintf((char *)&Uart1.txBuffer[Uart1.txCounter], "\n");
-                }
-
-                HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
+                LaserLineTo(x, y, steps);
             }
-            else if (StringStartsWith(pBuffer, "write"))
+            else
             {
-                int addr, wdata;
-                if (sscanf(&pBuffer[sizeof("write")], "%x %x", &addr, &wdata) == 2)
-                {
-                    uint8_t data = (uint8_t)wdata;
-                    EEPROMWrite((uint8_t)addr, &data, 1);
-                }
-            }
-            else if (StringStartsWith(pBuffer, "read"))
-            {
-                int addr;
-                if (sscanf(&pBuffer[sizeof("read")], "%x", &addr) == 1)
-                {
-                    uint8_t data;
-                    EEPROMRead((uint8_t)addr, &data, 1);
-
-                    SerialPrint("%02x: %02x\n", addr, data);
-                }
+                status = INVALID_ARGUMENT;
             }
         }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "laser"))
         {
-            uint16_t state;
-            if (sscanf((char *)&Uart1.rxBuffer[sizeof("laser")], "%hu", &state) == 1)
+            char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("laser")]);
+
+            if (StringStartsWith(pBuffer, "on"))
             {
-                if (state)
-                    LaserTurn(ON);
-                else
-                    LaserTurn(OFF);
+                LaserTurn(ON);
+            }
+            else if (StringStartsWith(pBuffer, "off"))
+            {
+                LaserTurn(OFF);
             }
             else
             {
-                SerialPrint("invalid laser arg\n");
+                status = INVALID_ARGUMENT;
             }
         }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "led"))
@@ -939,7 +916,7 @@ void ParseCommand(void)
             }
             else
             {
-                SerialPrint("invalid led arg\n");
+                status = INVALID_ARGUMENT;
             }
         }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "rgb"))
@@ -952,7 +929,65 @@ void ParseCommand(void)
             }
             else
             {
-                SerialPrint("invalid rgb arg\n");
+                status = INVALID_ARGUMENT;
+            }
+        }
+        else if (StringStartsWith((char *)Uart1.rxBuffer, "rom"))
+        {
+            char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("rom")]);
+
+            if (StringStartsWith(pBuffer, "dump"))
+            {
+                Uart1.txCounter = 0;
+                uint8_t data[16];
+
+                for (int i = 0; i < 16; i++)
+                {
+                    EEPROMRead(i * 16, data, 16);
+                    Uart1.txCounter += sprintf((char *)&Uart1.txBuffer[Uart1.txCounter], "%02x:", i * 16);
+
+                    for (int j = 0; j < 16; j++)
+                    {
+                        Uart1.txCounter += sprintf((char *)&Uart1.txBuffer[Uart1.txCounter], " %02x", data[j]);
+                    }
+                    Uart1.txCounter += sprintf((char *)&Uart1.txBuffer[Uart1.txCounter], "\n");
+                }
+
+                HAL_UART_Transmit(&huart1, Uart1.txBuffer, Uart1.txCounter, UART_TIMEOUT);
+                status = SILENT;
+            }
+            else if (StringStartsWith(pBuffer, "write"))
+            {
+                int addr, wdata;
+                if (sscanf(&pBuffer[sizeof("write")], "%x %x", &addr, &wdata) == 2)
+                {
+                    uint8_t data = (uint8_t)wdata;
+                    EEPROMWrite((uint8_t)addr, &data, 1);
+                }
+                else
+                {
+                    status = INVALID_ARGUMENT;
+                }
+            }
+            else if (StringStartsWith(pBuffer, "read"))
+            {
+                int addr;
+                if (sscanf(&pBuffer[sizeof("read")], "%x", &addr) == 1)
+                {
+                    uint8_t data;
+                    EEPROMRead((uint8_t)addr, &data, 1);
+
+                    SerialPrint("%02x: %02x\n", addr, data);
+                    status = SILENT;
+                }
+                else
+                {
+                    status = INVALID_ARGUMENT;
+                }
+            }
+            else
+            {
+                status = INVALID_ARGUMENT;
             }
         }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "mode"))
@@ -981,16 +1016,48 @@ void ParseCommand(void)
             }
             else
             {
-                SerialPrint("invalid mode\n");
+                status = INVALID_ARGUMENT;
             }
         }
-        else if (StringStartsWith((char *)Uart1.rxBuffer, "hardware reset"))
+        else if (StringStartsWith((char *)Uart1.rxBuffer, "hardware reset 69420"))
         {
             NVIC_SystemReset();
         }
+        else if (StringStartsWith((char *)Uart1.rxBuffer, "help"))
+        {
+            SerialPrint("move <x: double> <y: double> <steps: int>\n");
+            SerialPrint("laser <on/off>\n");
+            SerialPrint("led <1-4> <0/1>\n");
+            SerialPrint("rgb <0-1> <r> <g> <b>\n");
+            SerialPrint("rom dump\n");
+            SerialPrint("rom write <addr: hex> <data: hex>\n");
+            SerialPrint("rom read <addr: hex>\n");
+            SerialPrint("mode test\n");
+            SerialPrint("mode init\n");
+            SerialPrint("mode serial\n");
+            SerialPrint("mode rb\n");
+            SerialPrint("mode rgb\n");
+            SerialPrint("hardware reset <code>\n");
+            status = SILENT;
+        }
         else
         {
+            status = INVALID_COMMAND;
+        }
+
+        switch (status)
+        {
+        case OK:
+            SerialPrint("ok\n");
+            break;
+        case SILENT:
+            break;
+        case INVALID_COMMAND:
             SerialPrint("invalid command\n");
+            break;
+        case INVALID_ARGUMENT:
+            SerialPrint("invalid argument\n");
+            break;
         }
 
         CommandReady = FALSE;
@@ -1118,8 +1185,8 @@ void LaserSetPos(double x, double y)
     // wait for error to be within threshold or CommandReady
     // while (1)
     // {
-    //     // int16_t encoderx = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
-    //     // int16_t encodery = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
+    //     int16_t encoderx = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
+    //     int16_t encodery = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
 
     //     double xError = x - encoderx;
     //     double yError = y - encodery;

@@ -86,6 +86,14 @@ typedef enum FSMStateTypeDef
     RGB,
     RB
 } FSMStateTypeDef;
+
+typedef enum ParseStatusTypeDef
+{
+    OK,
+    SILENT,
+    INVALID_COMMAND,
+    INVALID_ARGUMENT
+} ParseStatusTypeDef;
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
