@@ -806,7 +806,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
         // int16_t encoderx = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
         // int16_t encodery = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
-        
+
         // HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
     }
 }
@@ -1180,25 +1180,28 @@ void LaserTurn(LaserStateTypeDef state)
 void LaserSetPos(double x, double y)
 {
     // calculate required encoder values
-    // set target
+    MotorX.target = (int16_t)(atan2(x, NORM_DIST) * STEPS_PER_RAD);
+    MotorY.target = (int16_t)(atan2(y, NORM_DIST) * STEPS_PER_RAD);
+
+    int16_t xEncoder, yEncoder;
+    double xError, yError;
 
     // wait for error to be within threshold or CommandReady
-    // while (1)
-    // {
-    //     int16_t encoderx = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
-    //     int16_t encodery = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
+    do
+    {
+        xEncoder = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
+        yEncoder = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
 
-    //     double xError = x - encoderx;
-    //     double yError = y - encodery;
+        LaserPos.x = tan(xEncoder * RAD_PER_STEPS) * NORM_DIST;
+        LaserPos.y = tan(yEncoder * RAD_PER_STEPS) * NORM_DIST;
 
-    //     if (fabs(xError) < 10 && fabs(yError) < 10)
-    //         break;
+        xError = x - LaserPos.x;
+        yError = y - LaserPos.y;
 
-    //     if (CommandReady)
-    //         break;
-    // }
+        *(uint64_t *)&xError = *(uint64_t *)&xError & 0x7FFFFFFFFFFFFFFF;
+        *(uint64_t *)&yError = *(uint64_t *)&yError & 0x7FFFFFFFFFFFFFFF;
 
-    LaserPos = (LaserPosStruct){x, y};
+    } while (CommandReady == FALSE && (xError > ERROR_THRESHOLD || yError > ERROR_THRESHOLD));
 }
 
 void LaserLineTo(double x, double y, uint16_t steps)

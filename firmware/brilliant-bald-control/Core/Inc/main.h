@@ -152,6 +152,12 @@ void Error_Handler(void);
 #define WS2812_PULSE_0 50
 #define MOT_PWM_PERIOD 4800
 #define UART_TIMEOUT 250
+#define ENCODER_RANGE 200 // ~15 degrees
+#define ENCODER_CPR 5000
+#define NORM_DIST 227.97120103 // 1 / tan(2pi * range / cpr)
+#define RAD_PER_STEPS 1.25663706144e-3
+#define STEPS_PER_RAD 795.774715459
+#define ERROR_THRESHOLD 0.01
 
 #define WsShow() HAL_TIM_PWM_Start_DMA(&HTIM_WS, TIM_CHANNEL_WS, (uint32_t *)WsBuffer, sizeof(WsBuffer))
 #define SerialPrint(str, ...)                                                          \
