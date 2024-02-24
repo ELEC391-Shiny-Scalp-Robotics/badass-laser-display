@@ -47,6 +47,7 @@ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
+TIM_HandleTypeDef htim6;
 TIM_HandleTypeDef htim7;
 DMA_HandleTypeDef hdma_tim4_ch1;
 
@@ -58,6 +59,7 @@ UARTStruct Uart1;
 FSMStateTypeDef FSMState = INIT;
 bool FSMIsParsing = FALSE;
 bool CommandReady = FALSE;
+bool MoveTimedOut = FALSE;
 LaserPosStruct LaserPos = {0.0, 0.0};
 double Kp = 0;
 double Kd = 0;
@@ -77,6 +79,7 @@ static void MX_TIM5_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_I2C3_Init(void);
 static void MX_TIM7_Init(void);
+static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 void ParseCommand(void);
 bool StringStartsWith(const char *str, const char *prefix);
@@ -131,6 +134,7 @@ int main(void)
     MX_USART1_UART_Init();
     MX_I2C3_Init();
     MX_TIM7_Init();
+    MX_TIM6_Init();
     /* USER CODE BEGIN 2 */
     HAL_TIM_Encoder_Start(&HTIM_ENCX, TIM_CHANNEL_ALL);
     HAL_TIM_Encoder_Start(&HTIM_ENCY, TIM_CHANNEL_ALL);
@@ -623,6 +627,43 @@ static void MX_TIM5_Init(void)
 }
 
 /**
+ * @brief TIM6 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM6_Init(void)
+{
+
+    /* USER CODE BEGIN TIM6_Init 0 */
+
+    /* USER CODE END TIM6_Init 0 */
+
+    TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+    /* USER CODE BEGIN TIM6_Init 1 */
+
+    /* USER CODE END TIM6_Init 1 */
+    htim6.Instance = TIM6;
+    htim6.Init.Prescaler = 24000 - 1;
+    htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim6.Init.Period = 65535;
+    htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+    if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+    {
+        Error_Handler();
+    }
+    sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+    sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+    if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+    {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN TIM6_Init 2 */
+
+    /* USER CODE END TIM6_Init 2 */
+}
+
+/**
  * @brief TIM7 Initialization Function
  * @param None
  * @retval None
@@ -870,6 +911,10 @@ void ParseCommand(void)
             if (sscanf((char *)&Uart1.rxBuffer[sizeof("move")], "%lf %lf %hu", &x, &y, &steps) == 3)
             {
                 LaserLineTo(x, y, steps);
+                if (MoveTimedOut)
+                {
+                    status = TIMEDOUT;
+                }
             }
             else
             {
@@ -1058,6 +1103,9 @@ void ParseCommand(void)
         case INVALID_ARGUMENT:
             SerialPrint("invalid argument\n");
             break;
+        case TIMEDOUT:
+            SerialPrint("timed out\n");
+            break;
         }
 
         CommandReady = FALSE;
@@ -1172,9 +1220,13 @@ void MotorSetSpeed(AxisTypeDef axis, int16_t speed)
 void LaserTurn(LaserStateTypeDef state)
 {
     if (state == ON)
+    {
         HAL_GPIO_WritePin(LASER_GPIO_Port, LASER_Pin, GPIO_PIN_RESET);
+    }
     else if (state == OFF)
+    {
         HAL_GPIO_WritePin(LASER_GPIO_Port, LASER_Pin, GPIO_PIN_SET);
+    }
 }
 
 void LaserSetPos(double x, double y)
@@ -1201,7 +1253,7 @@ void LaserSetPos(double x, double y)
         *(uint64_t *)&xError = *(uint64_t *)&xError & 0x7FFFFFFFFFFFFFFF;
         *(uint64_t *)&yError = *(uint64_t *)&yError & 0x7FFFFFFFFFFFFFFF;
 
-    } while (CommandReady == FALSE && (xError > ERROR_THRESHOLD || yError > ERROR_THRESHOLD));
+    } while (__HAL_TIM_GET_COUNTER(&htim6) < TIMEOUT_PERIOD && (xError > ERROR_THRESHOLD || yError > ERROR_THRESHOLD));
 }
 
 void LaserLineTo(double x, double y, uint16_t steps)
@@ -1210,9 +1262,21 @@ void LaserLineTo(double x, double y, uint16_t steps)
     double xDistance = x - startPos.x;
     double yDistance = y - startPos.y;
 
-    for (int i = 1; i <= steps && !CommandReady; i++)
+    __HAL_TIM_SET_COUNTER(&htim6, 0);
+    HAL_TIM_Base_Start(&htim6);
+    for (int i = 1; i <= steps && __HAL_TIM_GET_COUNTER(&htim6) < TIMEOUT_PERIOD; i++)
     {
         LaserSetPos(startPos.x + (double)i / steps * xDistance, startPos.y + (double)i / steps * yDistance);
+    }
+    HAL_TIM_Base_Stop(&htim6);
+
+    if (__HAL_TIM_GET_COUNTER(&htim6) >= TIMEOUT_PERIOD)
+    {
+        MoveTimedOut = TRUE;
+    }
+    else
+    {
+        MoveTimedOut = FALSE;
     }
 }
 

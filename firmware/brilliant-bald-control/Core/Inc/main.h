@@ -92,7 +92,8 @@ typedef enum ParseStatusTypeDef
     OK,
     SILENT,
     INVALID_COMMAND,
-    INVALID_ARGUMENT
+    INVALID_ARGUMENT,
+    TIMEDOUT
 } ParseStatusTypeDef;
 /* USER CODE END ET */
 
@@ -158,6 +159,7 @@ void Error_Handler(void);
 #define RAD_PER_STEPS 1.25663706144e-3
 #define STEPS_PER_RAD 795.774715459
 #define ERROR_THRESHOLD 0.01
+#define TIMEOUT_PERIOD 10000
 
 #define WsShow() HAL_TIM_PWM_Start_DMA(&HTIM_WS, TIM_CHANNEL_WS, (uint32_t *)WsBuffer, sizeof(WsBuffer))
 #define SerialPrint(str, ...)                                                          \
