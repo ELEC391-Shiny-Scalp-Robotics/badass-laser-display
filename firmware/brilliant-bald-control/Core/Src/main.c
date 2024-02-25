@@ -938,6 +938,39 @@ void ParseCommand(void)
                 status = INVALID_ARGUMENT;
             }
         }
+        else if (StringStartsWith((char *)Uart1.rxBuffer, "motor"))
+        {
+            char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("motor")]);
+
+            if (*pBuffer == 'x')
+            {
+                int16_t speed;
+                if (sscanf(&pBuffer[sizeof("x")], "%hd", &speed) == 1)
+                {
+                    MotorSetSpeed(X, speed);
+                }
+                else
+                {
+                    status = INVALID_ARGUMENT;
+                }
+            }
+            else if (*pBuffer == 'y')
+            {
+                int16_t speed;
+                if (sscanf(&pBuffer[sizeof("y")], "%hd", &speed) == 1)
+                {
+                    MotorSetSpeed(Y, speed);
+                }
+                else
+                {
+                    status = INVALID_ARGUMENT;
+                }
+            }
+            else
+            {
+                status = INVALID_ARGUMENT;
+            }
+        }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "led"))
         {
             uint16_t index, state;
@@ -1058,6 +1091,23 @@ void ParseCommand(void)
             else if (StringStartsWith(pBuffer, "rgb"))
             {
                 FSMState = RGB;
+            }
+            else
+            {
+                status = INVALID_ARGUMENT;
+            }
+        }
+        else if (StringStartsWith((char *)Uart1.rxBuffer, "control"))
+        {
+            char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("control")]);
+
+            if (StringStartsWith(pBuffer, "on"))
+            {
+                HAL_TIM_Base_Start_IT(&HTIM_CTRL);
+            }
+            else if (StringStartsWith(pBuffer, "off"))
+            {
+                HAL_TIM_Base_Stop_IT(&HTIM_CTRL);
             }
             else
             {
