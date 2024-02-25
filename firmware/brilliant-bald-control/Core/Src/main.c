@@ -66,6 +66,24 @@ double Kd = 0;
 uint16_t HomingSpeed = 1000;
 MotorStruct MotorX = {0, 0, 0, 0};
 MotorStruct MotorY = {0, 0, 0, 0};
+
+const uint8_t COS256[256] = {
+    255, 255, 255, 255, 254, 254, 254, 253, 253, 252, 251, 250, 249, 249, 248, 246,
+    245, 244, 243, 241, 240, 238, 237, 235, 233, 232, 230, 228, 226, 224, 222, 220,
+    218, 215, 213, 211, 208, 206, 203, 201, 198, 195, 193, 190, 187, 185, 182, 179,
+    176, 173, 170, 167, 164, 161, 158, 155, 152, 149, 146, 143, 140, 136, 133, 130,
+    127, 124, 121, 118, 114, 111, 108, 105, 102, 99, 96, 93, 90, 87, 84, 81,
+    78, 75, 72, 69, 67, 64, 61, 59, 56, 53, 51, 48, 46, 43, 41, 39,
+    36, 34, 32, 30, 28, 26, 24, 22, 21, 19, 17, 16, 14, 13, 11, 10,
+    9, 8, 6, 5, 5, 4, 3, 2, 1, 1, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 3, 4, 5, 5, 6, 8,
+    9, 10, 11, 13, 14, 16, 17, 19, 21, 22, 24, 26, 28, 30, 32, 34,
+    36, 39, 41, 43, 46, 48, 51, 53, 56, 59, 61, 64, 67, 69, 72, 75,
+    78, 81, 84, 87, 90, 93, 96, 99, 102, 105, 108, 111, 114, 118, 121, 124,
+    127, 130, 133, 136, 140, 143, 146, 149, 152, 155, 158, 161, 164, 167, 170, 173,
+    176, 179, 182, 185, 187, 190, 193, 195, 198, 201, 203, 206, 208, 211, 213, 215,
+    218, 220, 222, 224, 226, 228, 230, 232, 233, 235, 237, 238, 240, 241, 243, 244,
+    245, 246, 248, 249, 249, 250, 251, 252, 253, 253, 254, 254, 254, 255, 255, 255};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -248,12 +266,6 @@ int main(void)
                     }
                     HAL_Delay(100);
                 }
-
-                if (CommandReady)
-                {
-                    WsSetAll(0, 0, 0);
-                    WsShow();
-                }
                 ParseCommand();
             }
         }
@@ -264,20 +276,9 @@ int main(void)
             {
                 for (int i = 0; i < 256; i++)
                 {
-                    uint8_t r = (uint8_t)((cos(i / 256.0 * 2 * M_PI) * 127.0 + 127.0) * 0.08);
-                    uint8_t g = (uint8_t)((cos((i / 256.0 - 1.0 / 3.0) * 2 * M_PI) * 127.0 + 127.0) * 0.08);
-                    uint8_t b = (uint8_t)((cos((i / 256.0 - 2.0 / 3.0) * 2 * M_PI) * 127.0 + 127.0) * 0.08);
-
-                    WsSetAll(r, g, b);
-
+                    WsSetAll(COS256[(uint8_t)i] >> 4, COS256[(uint8_t)(i - 256 / 3)] >> 4, COS256[(uint8_t)(i - 256 * 2 / 3)] >> 4);
                     WsShow();
                     HAL_Delay(10);
-                }
-
-                if (CommandReady)
-                {
-                    WsSetAll(0, 0, 0);
-                    WsShow();
                 }
                 ParseCommand();
             }
@@ -1118,23 +1119,23 @@ void ParseCommand(void)
         {
             NVIC_SystemReset();
         }
-        else if (StringStartsWith((char *)Uart1.rxBuffer, "help"))
-        {
-            SerialPrint("move <x: double> <y: double> <steps: int>\n");
-            SerialPrint("laser <on/off>\n");
-            SerialPrint("led <1-4> <0/1>\n");
-            SerialPrint("rgb <0-1> <r> <g> <b>\n");
-            SerialPrint("rom dump\n");
-            SerialPrint("rom write <addr: hex> <data: hex>\n");
-            SerialPrint("rom read <addr: hex>\n");
-            SerialPrint("mode test\n");
-            SerialPrint("mode init\n");
-            SerialPrint("mode serial\n");
-            SerialPrint("mode rb\n");
-            SerialPrint("mode rgb\n");
-            SerialPrint("hardware reset <code>\n");
-            status = SILENT;
-        }
+        // else if (StringStartsWith((char *)Uart1.rxBuffer, "help"))
+        // {
+        //     SerialPrint("move <x: double> <y: double> <steps: int>\n");
+        //     SerialPrint("laser <on/off>\n");
+        //     SerialPrint("led <1-4> <0/1>\n");
+        //     SerialPrint("rgb <0-1> <r> <g> <b>\n");
+        //     SerialPrint("rom dump\n");
+        //     SerialPrint("rom write <addr: hex> <data: hex>\n");
+        //     SerialPrint("rom read <addr: hex>\n");
+        //     SerialPrint("mode test\n");
+        //     SerialPrint("mode init\n");
+        //     SerialPrint("mode serial\n");
+        //     SerialPrint("mode rb\n");
+        //     SerialPrint("mode rgb\n");
+        //     SerialPrint("hardware reset <code>\n");
+        //     status = SILENT;
+        // }
         else
         {
             status = INVALID_COMMAND;
