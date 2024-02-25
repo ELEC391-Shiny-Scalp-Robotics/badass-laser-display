@@ -1238,7 +1238,7 @@ void LaserSetPos(double x, double y)
     int16_t xEncoder, yEncoder;
     double xError, yError;
 
-    // wait for error to be within threshold or CommandReady
+    // wait for error to be within threshold or time out
     do
     {
         xEncoder = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
@@ -1262,8 +1262,11 @@ void LaserLineTo(double x, double y, uint16_t steps)
     double xDistance = x - startPos.x;
     double yDistance = y - startPos.y;
 
+    // start time out timer
     __HAL_TIM_SET_COUNTER(&htim6, 0);
     HAL_TIM_Base_Start(&htim6);
+
+    // interpolate between start and end position
     for (int i = 1; i <= steps && __HAL_TIM_GET_COUNTER(&htim6) < TIMEOUT_PERIOD; i++)
     {
         LaserSetPos(startPos.x + (double)i / steps * xDistance, startPos.y + (double)i / steps * yDistance);
