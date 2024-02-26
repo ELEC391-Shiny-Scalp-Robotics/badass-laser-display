@@ -872,9 +872,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
         {
             if (!FSMIsParsing)
             {
-                if (Uart1.rxByte == '\n' || Uart1.rxByte == '\r' || Uart1.rxCounter >= sizeof(Uart1.rxBuffer) - 1)
+                if (Uart1.rxByte == '\n' || Uart1.rxByte == '\r' || Uart1.rxCounter >= sizeof(Uart1.rxBuffer) - 2)
                 {
                     Uart1.rxBuffer[Uart1.rxCounter] = 0;
+                    Uart1.rxBuffer[Uart1.rxCounter + 1] = 0;
                     Uart1.rxCounter = 0;
                     CommandReady = TRUE;
                 }
@@ -1017,7 +1018,90 @@ void ParseCommand(void)
         {
             char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("param")]);
 
-            // if (StringStartsWith(pBuffer, "save"))
+            if (StringStartsWith(pBuffer, "load"))
+            {
+                ParamsRead();
+            }
+            else if (StringStartsWith(pBuffer, "save"))
+            {
+                ParamsWrite();
+            }
+            else if (StringStartsWith(pBuffer, "kp"))
+            {
+                if (sscanf(&pBuffer[sizeof("kp")], "%lf", &Kp) == 1)
+                {
+                    SerialPrint("kp <- %lf\n", Kp);
+                }
+                else
+                {
+                    SerialPrint("kp: %lf\n", Kp);
+                }
+                status = SILENT;
+            }
+            else if (StringStartsWith(pBuffer, "kd"))
+            {
+                if (sscanf(&pBuffer[sizeof("kd")], "%lf", &Kd) == 1)
+                {
+                    SerialPrint("kd <- %lf\n", Kd);
+                }
+                else
+                {
+                    SerialPrint("kd: %lf\n", Kd);
+                }
+                status = SILENT;
+            }
+            else if (StringStartsWith(pBuffer, "offset"))
+            {
+                pBuffer += sizeof("offset");
+
+                if (StringStartsWith(pBuffer, "x"))
+                {
+                    if (sscanf(&pBuffer[sizeof("x")], "%hd", &MotorX.homeOffset) == 1)
+                    {
+                        SerialPrint("offset x <- %hd\n", MotorX.homeOffset);
+                    }
+                    else
+                    {
+                        SerialPrint("offset x: %hd\n", MotorX.homeOffset);
+                    }
+                    status = SILENT;
+                }
+                else if (StringStartsWith(pBuffer, "y"))
+                {
+                    if (sscanf(&pBuffer[sizeof("y")], "%hd", &MotorY.homeOffset) == 1)
+                    {
+                        SerialPrint("offset y <- %hd\n", MotorY.homeOffset);
+                    }
+                    else
+                    {
+                        SerialPrint("offset y: %hd\n", MotorY.homeOffset);
+                    }
+                    status = SILENT;
+                }
+                else
+                {
+                    status = INVALID_ARGUMENT;
+                }
+            }
+            else if (StringStartsWith(pBuffer, "homing"))
+            {
+                pBuffer += sizeof("homing");
+
+                if (sscanf(pBuffer, "%hu", &HomingSpeed) == 1)
+                {
+                    SerialPrint("homing <- %hu\n", HomingSpeed);
+                }
+                else
+                {
+                    SerialPrint("homing: %hu\n", HomingSpeed);
+                }
+                status = SILENT;
+            }
+            else
+            {
+                SerialPrint("kp: %lf\nkd: %lf\nhoming speed: %hu\noffset x: %hd\noffset y: %hd\n", Kp, Kd, HomingSpeed, MotorX.homeOffset, MotorY.homeOffset);
+                status = SILENT;
+            }
         }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "rom"))
         {
@@ -1225,10 +1309,17 @@ void EEPROMWrite(uint8_t regAddr, uint8_t *pData, uint8_t size)
     HAL_I2C_Mem_Write(&hi2c3, EEPROM_ADDR << 1, regAddr, I2C_MEMADD_SIZE_8BIT, pData, size, 1000);
 }
 
+/**
+ * eeprom map:
+ *  0.. 7: Kp (double)
+ *  8..15: Kd (double)
+ * 16..17: HomingSpeed (uint16_t)
+ * 18..19: MotorX.homeOffset (int16_t)
+ * 20..21: MotorY.homeOffset (int16_t)
+ */
+
 void ParamsRead(void)
 {
-    // not final
-
     uint8_t readBuffer[22];
 
     EEPROMRead(0, readBuffer, 22);
@@ -1236,28 +1327,36 @@ void ParamsRead(void)
     for (int i = 0; i < 8; i++)
     {
         ((uint8_t *)&Kp)[i] = readBuffer[i];
-    }
-    for (int i = 0; i < 8; i++)
-    {
         ((uint8_t *)&Kd)[i] = readBuffer[i + 8];
+    }
+
+    for (int i = 0; i < 2; i++)
+    {
+        ((uint8_t *)&HomingSpeed)[i] = readBuffer[i + 16];
+        ((uint8_t *)&MotorX.homeOffset)[i] = readBuffer[i + 2 + 16];
+        ((uint8_t *)&MotorY.homeOffset)[i] = readBuffer[i + 4 + 16];
     }
 }
 
 void ParamsWrite(void)
 {
-    // not final
-
     uint8_t pageBuffer[16];
 
     for (int i = 0; i < 8; i++)
     {
         pageBuffer[i] = ((uint8_t *)&Kp)[i];
-    }
-    for (int i = 0; i < 8; i++)
-    {
         pageBuffer[i + 8] = ((uint8_t *)&Kd)[i];
     }
     EEPROMWrite(0, pageBuffer, 16);
+    HAL_Delay(5);
+
+    for (int i = 0; i < 2; i++)
+    {
+        pageBuffer[i] = ((uint8_t *)&HomingSpeed)[i];
+        pageBuffer[i + 2] = ((uint8_t *)&MotorX.homeOffset)[i];
+        pageBuffer[i + 4] = ((uint8_t *)&MotorY.homeOffset)[i];
+    }
+    EEPROMWrite(16, pageBuffer, 6);
 }
 
 void MotorSetSpeed(AxisTypeDef axis, int16_t speed)
