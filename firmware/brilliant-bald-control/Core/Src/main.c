@@ -1203,31 +1203,8 @@ void WsSet(uint8_t index, uint8_t r, uint8_t g, uint8_t b)
 
 void WsSetAll(uint8_t r, uint8_t g, uint8_t b)
 {
-    for (uint8_t index = 0; index < 2 * 24; index += 24)
-    {
-        uint8_t i = 0, mask;
-        for (mask = 0x80; mask > 0; i++, mask >>= 1)
-        {
-            if (g & mask)
-                WsBuffer[index + i] = WS2812_PULSE_1;
-            else
-                WsBuffer[index + i] = WS2812_PULSE_0;
-        }
-        for (mask = 0x80; mask > 0; i++, mask >>= 1)
-        {
-            if (r & mask)
-                WsBuffer[index + i] = WS2812_PULSE_1;
-            else
-                WsBuffer[index + i] = WS2812_PULSE_0;
-        }
-        for (mask = 0x80; mask > 0; i++, mask >>= 1)
-        {
-            if (b & mask)
-                WsBuffer[index + i] = WS2812_PULSE_1;
-            else
-                WsBuffer[index + i] = WS2812_PULSE_0;
-        }
-    }
+    WsSet(0, r, g, b);
+    WsSet(1, r, g, b);
 }
 
 void EEPROMRead(uint8_t regAddr, uint8_t *pData, uint8_t size)
