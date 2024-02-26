@@ -105,6 +105,8 @@ void WsSet(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
 void WsSetAll(uint8_t r, uint8_t g, uint8_t b);
 void EEPROMRead(uint8_t regAddr, uint8_t *pData, uint8_t size);
 void EEPROMWrite(uint8_t regAddr, uint8_t *pData, uint8_t size);
+void ParamsRead(void);
+void ParamsWrite(void);
 void MotorSetSpeed(AxisTypeDef axis, int16_t speed);
 void LaserTurn(LaserStateTypeDef state);
 void LaserSetPos(double x, double y);
@@ -1011,6 +1013,12 @@ void ParseCommand(void)
                 status = INVALID_ARGUMENT;
             }
         }
+        else if (StringStartsWith((char *)Uart1.rxBuffer, "param"))
+        {
+            char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("param")]);
+
+            // if (StringStartsWith(pBuffer, "save"))
+        }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "rom"))
         {
             char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("rom")]);
@@ -1215,6 +1223,41 @@ void EEPROMRead(uint8_t regAddr, uint8_t *pData, uint8_t size)
 void EEPROMWrite(uint8_t regAddr, uint8_t *pData, uint8_t size)
 {
     HAL_I2C_Mem_Write(&hi2c3, EEPROM_ADDR << 1, regAddr, I2C_MEMADD_SIZE_8BIT, pData, size, 1000);
+}
+
+void ParamsRead(void)
+{
+    // not final
+
+    uint8_t readBuffer[22];
+
+    EEPROMRead(0, readBuffer, 22);
+
+    for (int i = 0; i < 8; i++)
+    {
+        ((uint8_t *)&Kp)[i] = readBuffer[i];
+    }
+    for (int i = 0; i < 8; i++)
+    {
+        ((uint8_t *)&Kd)[i] = readBuffer[i + 8];
+    }
+}
+
+void ParamsWrite(void)
+{
+    // not final
+
+    uint8_t pageBuffer[16];
+
+    for (int i = 0; i < 8; i++)
+    {
+        pageBuffer[i] = ((uint8_t *)&Kp)[i];
+    }
+    for (int i = 0; i < 8; i++)
+    {
+        pageBuffer[i + 8] = ((uint8_t *)&Kd)[i];
+    }
+    EEPROMWrite(0, pageBuffer, 16);
 }
 
 void MotorSetSpeed(AxisTypeDef axis, int16_t speed)
