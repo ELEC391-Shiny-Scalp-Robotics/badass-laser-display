@@ -63,7 +63,7 @@ bool MoveTimedOut = FALSE;
 LaserPosStruct LaserPos = {0.0, 0.0};
 double Kp = 0;
 double Kd = 0;
-uint16_t HomingSpeed = 1000;
+uint16_t HomingSpeed = 400;
 MotorStruct MotorX = {0, 0, 0, 0};
 MotorStruct MotorY = {0, 0, 0, 0};
 
