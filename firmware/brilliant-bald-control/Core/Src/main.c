@@ -185,10 +185,10 @@ int main(void)
         {
             SerialPrint("test mode\n");
 
-            while (FSMState == TEST)
+            do
             {
                 ParseCommand();
-            }
+            } while (FSMState == TEST);
         }
 
         if (FSMState == INIT)
@@ -221,27 +221,35 @@ int main(void)
         {
             SerialPrint("serial mode\n");
 
-            while (FSMState == SERIAL)
+            do
             {
                 ParseCommand();
-            }
+            } while (FSMState == SERIAL);
         }
 
         if (FSMState == MEMORY_SQUARE)
         {
             SerialPrint("square mode\n");
 
-            while (FSMState == MEMORY_SQUARE)
+            LaserTurn(OFF);
+            HAL_TIM_Base_Start_IT(&HTIM_CTRL);
+            LaserLineTo(-1.0, -1.0, 1);
+            LaserTurn(ON);
+
+            do
             {
-                // draw square
+                LaserLineTo(-1.0, 1.0, 1);
+                LaserLineTo(1.0, 1.0, 1);
+                LaserLineTo(1.0, -1.0, 1);
+                LaserLineTo(-1.0, -1.0, 1);
 
                 ParseCommand();
-            }
+            } while (FSMState == MEMORY_SQUARE);
         }
 
         if (FSMState == RB)
         {
-            while (FSMState == RB)
+            do
             {
                 for (int j = 0; j < 2; j++)
                 {
@@ -269,12 +277,12 @@ int main(void)
                     HAL_Delay(100);
                 }
                 ParseCommand();
-            }
+            } while (FSMState == RB);
         }
 
         if (FSMState == RGB)
         {
-            while (FSMState == RGB)
+            do
             {
                 for (int i = 0; i < 256; i++)
                 {
@@ -283,7 +291,7 @@ int main(void)
                     HAL_Delay(10);
                 }
                 ParseCommand();
-            }
+            } while (FSMState == RGB);
         }
         /* USER CODE END WHILE */
 
