@@ -153,11 +153,11 @@ void Error_Handler(void);
 #define WS2812_PULSE_0 50
 #define MOT_PWM_PERIOD 4800
 #define UART_TIMEOUT 250
-#define ENCODER_RANGE 200 // ~15 degrees
-#define ENCODER_CPR 5000
-#define NORM_DIST 227.97120103 // 1 / tan(2pi * range / cpr)
-#define RAD_PER_STEPS 1.25663706144e-3
-#define STEPS_PER_RAD 795.774715459
+#define ENCODER_RANGE 510 // ~15 degrees
+#define ENCODER_CPR 12240
+#define NORM_DIST 218.852233578 // 1 / tan(2pi * range / cpr)
+#define RAD_PER_STEPS 5.1333213294E-4
+#define STEPS_PER_RAD 1948.05650344
 #define ERROR_THRESHOLD 0.01
 #define TIMEOUT_PERIOD 10000
 
