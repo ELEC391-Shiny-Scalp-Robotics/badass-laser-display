@@ -1410,8 +1410,8 @@ void LaserTurn(LaserStateTypeDef state)
 void LaserSetPos(double x, double y)
 {
     // calculate required encoder values
-    MotorX.target = (int16_t)(atan2(x, NORM_DIST) * STEPS_PER_RAD);
-    MotorY.target = (int16_t)(atan2(y, NORM_DIST) * STEPS_PER_RAD);
+    MotorX.target = (int16_t)(atan(x / NORM_DIST) * STEPS_PER_RAD);
+    MotorY.target = (int16_t)(atan(y / NORM_DIST) * STEPS_PER_RAD);
 
     int16_t xEncoder, yEncoder;
     double xError, yError;
@@ -1428,9 +1428,8 @@ void LaserSetPos(double x, double y)
         xError = x - LaserPos.x;
         yError = y - LaserPos.y;
 
-        *(uint64_t *)&xError = *(uint64_t *)&xError & 0x7FFFFFFFFFFFFFFF;
-        *(uint64_t *)&yError = *(uint64_t *)&yError & 0x7FFFFFFFFFFFFFFF;
-
+        xError = fabs(xError);
+        yError = fabs(yError);
     } while (__HAL_TIM_GET_COUNTER(&htim6) < TIMEOUT_PERIOD && (xError > ERROR_THRESHOLD || yError > ERROR_THRESHOLD));
 }
 
