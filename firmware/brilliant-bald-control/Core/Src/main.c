@@ -56,7 +56,7 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 uint16_t WsBuffer[48];
 UARTStruct Uart1;
-FSMStateTypeDef FSMState = INIT;
+FSMStateTypeDef FSMState = SERIAL;
 bool FSMIsParsing = FALSE;
 bool CommandReady = FALSE;
 bool MoveTimedOut = FALSE;
@@ -108,9 +108,11 @@ void EEPROMWrite(uint8_t regAddr, uint8_t *pData, uint8_t size);
 void ParamsRead(void);
 void ParamsWrite(void);
 void MotorSetSpeed(AxisTypeDef axis, int16_t speed);
+void Home(void);
+void Step(void);
 void LaserTurn(LaserStateTypeDef state);
-void LaserSetPos(double x, double y);
-void LaserLineTo(double x, double y, uint16_t steps);
+void SetPos(double x, double y);
+void LineTo(double x, double y, uint16_t steps);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -175,6 +177,9 @@ int main(void)
             FSMState = TEST;
         }
     }
+
+    ParamsRead();
+    Home();
     /* USER CODE END 2 */
 
     /* Infinite loop */
@@ -189,32 +194,6 @@ int main(void)
             {
                 ParseCommand();
             } while (FSMState == TEST);
-        }
-
-        if (FSMState == INIT)
-        {
-            SerialPrint("init\n");
-
-            // stop control loop
-            HAL_TIM_Base_Stop_IT(&HTIM_CTRL);
-
-            // load eeprom for Kp, Kd, offset, homing speed
-            // EEPROMRead(...);
-
-            // home motors
-            // MotorSetSpeed(X, HomingSpeed);
-            // wait for Stop
-            // MotorSetSpeed(X, 0);
-            // __HAL_TIM_SET_COUNTER(&HTIM_ENCX, MotorX.offset);
-            // ...
-            // MotorSetSpeed(Y, 0);
-            // __HAL_TIM_SET_COUNTER(&HTIM_ENCY, -MotorY.offset);
-            // reset motor structs
-
-            // start control loop
-            // HAL_TIM_Base_Start_IT(&HTIM_CTRL);
-
-            FSMState = SERIAL;
         }
 
         if (FSMState == SERIAL)
@@ -233,15 +212,15 @@ int main(void)
 
             LaserTurn(OFF);
             HAL_TIM_Base_Start_IT(&HTIM_CTRL);
-            LaserLineTo(-1.0, -1.0, 1);
+            LineTo(-1.0, -1.0, 1);
             LaserTurn(ON);
 
             do
             {
-                LaserLineTo(-1.0, 1.0, 1);
-                LaserLineTo(1.0, 1.0, 1);
-                LaserLineTo(1.0, -1.0, 1);
-                LaserLineTo(-1.0, -1.0, 1);
+                LineTo(-1.0, 1.0, 1);
+                LineTo(1.0, 1.0, 1);
+                LineTo(1.0, -1.0, 1);
+                LineTo(-1.0, -1.0, 1);
 
                 ParseCommand();
             } while (FSMState == MEMORY_SQUARE);
@@ -922,7 +901,7 @@ void ParseCommand(void)
             uint16_t steps;
             if (sscanf((char *)&Uart1.rxBuffer[sizeof("move")], "%lf %lf %hu", &x, &y, &steps) == 3)
             {
-                LaserLineTo(x, y, steps);
+                LineTo(x, y, steps);
                 if (MoveTimedOut)
                 {
                     status = TIMEDOUT;
@@ -1177,10 +1156,6 @@ void ParseCommand(void)
             {
                 FSMState = TEST;
             }
-            else if (StringStartsWith(pBuffer, "init"))
-            {
-                FSMState = INIT;
-            }
             else if (StringStartsWith(pBuffer, "serial"))
             {
                 FSMState = SERIAL;
@@ -1395,6 +1370,34 @@ void MotorSetSpeed(AxisTypeDef axis, int16_t speed)
     }
 }
 
+void Home(void)
+{
+    LaserTurn(OFF);
+
+    // stop control loop
+    HAL_TIM_Base_Stop_IT(&HTIM_CTRL);
+
+    // home motors
+    // MotorSetSpeed(X, HomingSpeed);
+    // wait for stop
+    // MotorSetSpeed(X, 0);
+    // __HAL_TIM_SET_COUNTER(&HTIM_ENCX, (int16_t)MotorX.offset);
+    // ...
+    // MotorSetSpeed(Y, 0);
+    // __HAL_TIM_SET_COUNTER(&HTIM_ENCY, (int16_t)-MotorY.offset);
+    // reset motor structs
+
+    // restart control loop
+    // HAL_TIM_Base_Start_IT(&HTIM_CTRL);
+
+    LaserTurn(ON);
+}
+
+void Step(void)
+{
+    // angle step response both axis
+}
+
 void LaserTurn(LaserStateTypeDef state)
 {
     if (state == ON)
@@ -1407,7 +1410,7 @@ void LaserTurn(LaserStateTypeDef state)
     }
 }
 
-void LaserSetPos(double x, double y)
+void SetPos(double x, double y)
 {
     // calculate required encoder values
     MotorX.target = (int16_t)(atan(x / NORM_DIST) * STEPS_PER_RAD);
@@ -1433,7 +1436,7 @@ void LaserSetPos(double x, double y)
     } while (__HAL_TIM_GET_COUNTER(&htim6) < TIMEOUT_PERIOD && (xError > ERROR_THRESHOLD || yError > ERROR_THRESHOLD));
 }
 
-void LaserLineTo(double x, double y, uint16_t steps)
+void LineTo(double x, double y, uint16_t steps)
 {
     LaserPosStruct startPos = LaserPos;
     double xDistance = x - startPos.x;
@@ -1446,7 +1449,7 @@ void LaserLineTo(double x, double y, uint16_t steps)
     // interpolate between start and end position
     for (int i = 1; i <= steps && __HAL_TIM_GET_COUNTER(&htim6) < TIMEOUT_PERIOD; i++)
     {
-        LaserSetPos(startPos.x + (double)i / steps * xDistance, startPos.y + (double)i / steps * yDistance);
+        SetPos(startPos.x + (double)i / steps * xDistance, startPos.y + (double)i / steps * yDistance);
     }
     HAL_TIM_Base_Stop(&htim6);
 

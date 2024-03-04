@@ -76,7 +76,6 @@ typedef enum bool
 typedef enum FSMStateTypeDef
 {
     TEST,
-    INIT,
     SERIAL,
     MEMORY_SQUARE,
     MEMORY_TRIANGLE,
