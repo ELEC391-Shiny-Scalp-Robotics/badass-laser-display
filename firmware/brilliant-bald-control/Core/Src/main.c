@@ -63,7 +63,7 @@ bool MoveTimedOut = FALSE;
 LaserPosStruct LaserPos = {0.0, 0.0};
 double Kp = 0;
 double Kd = 0;
-uint16_t HomingSpeed = 400;
+uint16_t HomingSpeed = 200;
 MotorStruct MotorX = {0, 0, 0, 0};
 MotorStruct MotorY = {0, 0, 0, 0};
 
@@ -176,10 +176,13 @@ int main(void)
         {
             FSMState = TEST;
         }
+        else
+        {
+            ParamsRead();
+            Home();
+        }
     }
 
-    ParamsRead();
-    Home();
     /* USER CODE END 2 */
 
     /* Infinite loop */
