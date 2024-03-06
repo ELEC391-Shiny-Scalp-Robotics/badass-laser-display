@@ -503,11 +503,11 @@ static void MX_TIM3_Init(void)
     sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
     sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
     sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-    sConfig.IC1Filter = 0;
-    sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+    sConfig.IC1Filter = 4;
+    sConfig.IC2Polarity = TIM_ICPOLARITY_FALLING;
     sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
     sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-    sConfig.IC2Filter = 0;
+    sConfig.IC2Filter = 4;
     if (HAL_TIM_Encoder_Init(&htim3, &sConfig) != HAL_OK)
     {
         Error_Handler();
@@ -599,11 +599,11 @@ static void MX_TIM5_Init(void)
     sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
     sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
     sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-    sConfig.IC1Filter = 0;
+    sConfig.IC1Filter = 4;
     sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
     sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
     sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-    sConfig.IC2Filter = 0;
+    sConfig.IC2Filter = 4;
     if (HAL_TIM_Encoder_Init(&htim5, &sConfig) != HAL_OK)
     {
         Error_Handler();
@@ -841,6 +841,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         // int16_t encoderx = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
         // int16_t encodery = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
 
+        // MotorX.error = MotorX.target - encoderx;
+        // MotorY.error = MotorY.target - encodery;
+
+        // MotorSetSpeed(X, MotorX.error);
+        // MotorSetSpeed(Y, MotorY.error);
+
         // HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
     }
 }
@@ -1003,6 +1009,10 @@ void ParseCommand(void)
             {
                 status = INVALID_ARGUMENT;
             }
+        }
+        else if (StringStartsWith((char *)Uart1.rxBuffer, "home"))
+        {
+            Home();
         }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "pos"))
         {
@@ -1384,19 +1394,43 @@ void Home(void)
 
     // stop control loop
     HAL_TIM_Base_Stop_IT(&HTIM_CTRL);
+    MotorSetSpeed(X, 0);
+    MotorSetSpeed(Y, 0);
 
-    // home motors
-    // MotorSetSpeed(X, HomingSpeed);
-    // wait for stop
-    // MotorSetSpeed(X, 0);
-    // __HAL_TIM_SET_COUNTER(&HTIM_ENCX, (int16_t)MotorX.offset);
-    // ...
-    // MotorSetSpeed(Y, 0);
-    // __HAL_TIM_SET_COUNTER(&HTIM_ENCY, (int16_t)-MotorY.offset);
-    // reset motor structs
+    int16_t encoder;
+
+    // home x
+    MotorSetSpeed(X, HomingSpeed);
+    do
+    {
+        encoder = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
+        HAL_Delay(100);
+    } while (encoder != (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX));
+    MotorSetSpeed(X, 0);
+    HAL_Delay(100);
+    __HAL_TIM_SET_COUNTER(&HTIM_ENCX, ENCODER_CPR / 4 - MotorX.homeOffset);
+
+    // home y
+    MotorSetSpeed(Y, -HomingSpeed);
+    do
+    {
+        encoder = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
+        HAL_Delay(100);
+    } while (encoder != (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
+    MotorSetSpeed(Y, 0);
+    HAL_Delay(100);
+    __HAL_TIM_SET_COUNTER(&HTIM_ENCY, -(ENCODER_CPR / 4) - MotorY.homeOffset);
+
+    // reset structs
+    MotorX.target = 0;
+    MotorX.lastError = 0;
+    MotorY.target = 0;
+    MotorY.lastError = 0;
 
     // restart control loop
-    // HAL_TIM_Base_Start_IT(&HTIM_CTRL);
+    HAL_TIM_Base_Start_IT(&HTIM_CTRL);
+
+    HAL_Delay(500);
 
     LaserTurn(ON);
 }
