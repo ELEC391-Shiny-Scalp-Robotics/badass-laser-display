@@ -1004,6 +1004,11 @@ void ParseCommand(void)
                 status = INVALID_ARGUMENT;
             }
         }
+        else if (StringStartsWith((char *)Uart1.rxBuffer, "pos"))
+        {
+            SerialPrint("x: %hd\ny: %hd\n", (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX), (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
+            status = SILENT;
+        }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "param"))
         {
             char *pBuffer = (char *)(&Uart1.rxBuffer[sizeof("param")]);
