@@ -1351,13 +1351,13 @@ void MotorSetSpeed(AxisTypeDef axis, int16_t speed)
 
     if (speed >= 0)
     {
-        pulseA = speed;
-        pulseB = 0;
+        pulseA = 0;
+        pulseB = speed;
     }
     else
     {
-        pulseA = 0;
-        pulseB = -speed;
+        pulseA = -speed;
+        pulseB = 0;
     }
 
     switch (axis)
