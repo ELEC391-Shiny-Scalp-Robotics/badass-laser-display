@@ -153,7 +153,7 @@ void Error_Handler(void);
 #define MOT_PWM_PERIOD 4800
 #define UART_TIMEOUT 250
 #define ENCODER_RANGE 510 // ~15 degrees
-#define ENCODER_CPR 12240
+#define ENCODER_CPR 24480
 #define NORM_DIST 218.852233578 // 1 / tan(2pi * range / cpr)
 #define RAD_PER_STEPS 5.1333213294E-4
 #define STEPS_PER_RAD 1948.05650344
