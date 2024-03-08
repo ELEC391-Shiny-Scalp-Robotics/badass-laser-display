@@ -154,11 +154,9 @@ void Error_Handler(void);
 #define UART_TIMEOUT 250
 #define ENCODER_RANGE 1020 // ~15 degrees
 #define ENCODER_CPR 24480
-#define NORM_DIST 218.852233578 // 1 / tan(2pi * range / cpr)
+#define NORM_DIST 3.73205080757 // 1 / tan(2pi * range / cpr)
 #define RAD_PER_STEPS 2.5666606647E-4
 #define STEPS_PER_RAD 3896.11300689
-#define ERROR_THRESHOLD 0.01
-#define TIMEOUT_PERIOD 10000
 
 #define WsShow() HAL_TIM_PWM_Start_DMA(&HTIM_WS, TIM_CHANNEL_WS, (uint32_t *)WsBuffer, sizeof(WsBuffer))
 #define SerialPrint(str, ...)                                                          \
