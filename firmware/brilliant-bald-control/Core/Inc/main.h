@@ -139,6 +139,8 @@ void Error_Handler(void);
 #define HTIM_MOT htim1
 #define HTIM_WS htim4
 #define HTIM_CTRL htim7
+#define HTIM_TIMEOUT htim6
+#define HTIM_LOG htim13
 
 #define TIM_CHANNEL_WS TIM_CHANNEL_1
 #define TIM_CHANNEL_MOT_XA TIM_CHANNEL_1
@@ -152,8 +154,8 @@ void Error_Handler(void);
 #define WS2812_PULSE_0 50
 #define MOT_PWM_PERIOD 4800
 #define UART_TIMEOUT 250
-#define ENCODER_RANGE 1020 // ~15 degrees
-#define ENCODER_CPR 24480
+#define ENCODER_RANGE 2040 // ~15 degrees
+#define ENCODER_CPR 48960
 #define NORM_DIST 3.73205080757 // 1 / tan(2pi * range / cpr)
 #define RAD_PER_STEPS 2.5666606647E-4
 #define STEPS_PER_RAD 3896.11300689

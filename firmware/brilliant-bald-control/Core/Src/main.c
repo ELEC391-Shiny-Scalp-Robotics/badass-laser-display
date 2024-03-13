@@ -49,6 +49,7 @@ TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim6;
 TIM_HandleTypeDef htim7;
+TIM_HandleTypeDef htim13;
 DMA_HandleTypeDef hdma_tim4_ch1;
 
 UART_HandleTypeDef huart1;
@@ -66,6 +67,7 @@ double Kd = 0;
 double ErrorThreshold = 0.3;
 uint16_t HomingSpeed = 400;
 uint16_t TimeoutPeriod = 10000;
+uint16_t LogTime = 0;
 MotorStruct MotorX = {0, 0, 0, 0};
 MotorStruct MotorY = {0, 0, 0, 0};
 
@@ -100,6 +102,7 @@ static void MX_USART1_UART_Init(void);
 static void MX_I2C3_Init(void);
 static void MX_TIM7_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_TIM13_Init(void);
 /* USER CODE BEGIN PFP */
 void ParseCommand(void);
 bool StringStartsWith(const char *str, const char *prefix);
@@ -159,6 +162,7 @@ int main(void)
     MX_I2C3_Init();
     MX_TIM7_Init();
     MX_TIM6_Init();
+    MX_TIM13_Init();
     /* USER CODE BEGIN 2 */
     HAL_TIM_Encoder_Start(&HTIM_ENCX, TIM_CHANNEL_ALL);
     HAL_TIM_Encoder_Start(&HTIM_ENCY, TIM_CHANNEL_ALL);
@@ -641,7 +645,7 @@ static void MX_TIM6_Init(void)
     htim6.Instance = TIM6;
     htim6.Init.Prescaler = 24000 - 1;
     htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim6.Init.Period = 65535;
+    htim6.Init.Period = 10000 - 1;
     htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
     if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
     {
@@ -693,6 +697,36 @@ static void MX_TIM7_Init(void)
     /* USER CODE BEGIN TIM7_Init 2 */
 
     /* USER CODE END TIM7_Init 2 */
+}
+
+/**
+ * @brief TIM13 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM13_Init(void)
+{
+
+    /* USER CODE BEGIN TIM13_Init 0 */
+
+    /* USER CODE END TIM13_Init 0 */
+
+    /* USER CODE BEGIN TIM13_Init 1 */
+
+    /* USER CODE END TIM13_Init 1 */
+    htim13.Instance = TIM13;
+    htim13.Init.Prescaler = 240 - 1;
+    htim13.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim13.Init.Period = 5000 - 1;
+    htim13.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    htim13.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+    if (HAL_TIM_Base_Init(&htim13) != HAL_OK)
+    {
+        Error_Handler();
+    }
+    /* USER CODE BEGIN TIM13_Init 2 */
+
+    /* USER CODE END TIM13_Init 2 */
 }
 
 /**
@@ -753,7 +787,7 @@ static void MX_DMA_Init(void)
 
     /* DMA interrupt init */
     /* DMA1_Stream0_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 3, 0);
+    HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 4, 0);
     HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
 }
 
@@ -850,6 +884,18 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         // MotorSetSpeed(Y, MotorY.error);
 
         // HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
+    }
+
+    if (htim == &HTIM_TIMEOUT)
+    {
+        MoveTimedOut = TRUE;
+        HAL_TIM_Base_Stop_IT(&HTIM_TIMEOUT);
+    }
+
+    if (htim == &HTIM_LOG)
+    {
+        SerialPrint("%hu %hd %hd\n", LogTime, (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX), (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
+        LogTime += 5;
     }
 }
 
@@ -1015,6 +1061,10 @@ void ParseCommand(void)
         else if (StringStartsWith((char *)Uart1.rxBuffer, "home"))
         {
             Home();
+        }
+        else if (StringStartsWith((char *)Uart1.rxBuffer, "step"))
+        {
+            Step();
         }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "pos"))
         {
@@ -1451,7 +1501,7 @@ void Home(void)
     } while (encoder != (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX));
     MotorSetSpeed(X, 0);
     HAL_Delay(100);
-    __HAL_TIM_SET_COUNTER(&HTIM_ENCX, ENCODER_CPR / 4 - MotorX.homeOffset);
+    __HAL_TIM_SET_COUNTER(&HTIM_ENCX, ENCODER_CPR / 8 - MotorX.homeOffset);
 
     // home y
     MotorSetSpeed(Y, -HomingSpeed);
@@ -1462,7 +1512,7 @@ void Home(void)
     } while (encoder != (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
     MotorSetSpeed(Y, 0);
     HAL_Delay(100);
-    __HAL_TIM_SET_COUNTER(&HTIM_ENCY, -(ENCODER_CPR / 4) - MotorY.homeOffset);
+    __HAL_TIM_SET_COUNTER(&HTIM_ENCY, -(ENCODER_CPR / 8) - MotorY.homeOffset);
 
     // reset structs
     MotorX.target = 0;
@@ -1480,7 +1530,28 @@ void Home(void)
 
 void Step(void)
 {
-    // angle step response both axis
+    LaserTurn(OFF);
+
+    LogTime = 0;
+    MotorX.target = -ENCODER_RANGE;
+    MotorY.target = -ENCODER_RANGE;
+    HAL_Delay(1000);
+
+    // start logging
+    __HAL_TIM_SET_COUNTER(&HTIM_LOG, 0);
+    __HAL_TIM_CLEAR_IT(&HTIM_LOG, TIM_IT_UPDATE);
+    HAL_TIM_Base_Start_IT(&HTIM_LOG);
+
+    HAL_Delay(500);
+    MotorX.target = ENCODER_RANGE;
+    MotorY.target = ENCODER_RANGE;
+    HAL_Delay(1000);
+    MotorX.target = -ENCODER_RANGE;
+    MotorY.target = -ENCODER_RANGE;
+    HAL_Delay(1000);
+
+    // stop logging
+    HAL_TIM_Base_Stop_IT(&HTIM_LOG);
 }
 
 void LaserTurn(LaserStateTypeDef state)
@@ -1522,7 +1593,7 @@ void SetPos(double x, double y)
         // SerialPrint("\ntarget x:%lf y:%lf\nencoder x:%hd y:%hd\nlaserpos x:%lf y:%lf\nerror x:%lf y:%lf\n", x, y, xEncoder, yEncoder, LaserPos.x, LaserPos.y, xError, yError);
         // HAL_Delay(10);
 
-    } while (__HAL_TIM_GET_COUNTER(&htim6) < TimeoutPeriod && (xError > ErrorThreshold || yError > ErrorThreshold));
+    } while (!MoveTimedOut && (xError > ErrorThreshold || yError > ErrorThreshold));
 }
 
 void LineTo(double x, double y, uint16_t steps)
@@ -1531,24 +1602,16 @@ void LineTo(double x, double y, uint16_t steps)
     double xDistance = x - startPos.x;
     double yDistance = y - startPos.y;
 
-    // start time out timer
-    __HAL_TIM_SET_COUNTER(&htim6, 0);
-    HAL_TIM_Base_Start(&htim6);
+    // start timeout timer
+    MoveTimedOut = FALSE;
+    __HAL_TIM_SET_COUNTER(&HTIM_TIMEOUT, 0);
+    __HAL_TIM_CLEAR_IT(&HTIM_TIMEOUT, TIM_IT_UPDATE);
+    HAL_TIM_Base_Start_IT(&HTIM_TIMEOUT);
 
     // interpolate between start and end position
-    for (int i = 1; i <= steps && __HAL_TIM_GET_COUNTER(&htim6) < TimeoutPeriod; i++)
+    for (int i = 1; i <= steps && !MoveTimedOut; i++)
     {
         SetPos(startPos.x + (double)i / steps * xDistance, startPos.y + (double)i / steps * yDistance);
-    }
-    HAL_TIM_Base_Stop(&htim6);
-
-    if (__HAL_TIM_GET_COUNTER(&htim6) >= TimeoutPeriod)
-    {
-        MoveTimedOut = TRUE;
-    }
-    else
-    {
-        MoveTimedOut = FALSE;
     }
 }
 
