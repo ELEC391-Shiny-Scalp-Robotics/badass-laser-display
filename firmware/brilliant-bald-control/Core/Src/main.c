@@ -874,17 +874,17 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
         // control loop
 
-        // MotorX.error = MotorX.target - (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
-        // MotorY.error = MotorY.target - (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
+        MotorX.error = MotorX.target - (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
+        MotorY.error = MotorY.target - (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
 
-        // int16_t speedX = (int16_t)(MotorX.error * Kp + (MotorX.error - MotorX.lastError) * 5000.0 * Kd);
-        // int16_t speedY = (int16_t)(MotorY.error * Kp + (MotorY.error - MotorY.lastError) * 5000.0 * Kd);
+        int16_t speedX = (int16_t)(MotorX.error * Kp + (MotorX.error - MotorX.lastError) * 5000.0 * Kd);
+        int16_t speedY = (int16_t)(MotorY.error * Kp + (MotorY.error - MotorY.lastError) * 5000.0 * Kd);
 
-        // MotorSetSpeed(X, speedX);
-        // MotorSetSpeed(Y, speedY);
+        MotorSetSpeed(X, speedX);
+        MotorSetSpeed(Y, speedY);
 
-        // MotorX.lastError = MotorX.error;
-        // MotorY.lastError = MotorY.error;
+        MotorX.lastError = MotorX.error;
+        MotorY.lastError = MotorY.error;
 
         // HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
     }
@@ -1536,6 +1536,8 @@ void Step(void)
     MotorX.target = -ENCODER_RANGE;
     MotorY.target = -ENCODER_RANGE;
     HAL_Delay(1000);
+
+    SerialPrint("Kp: %lf Kd: %lf\n", Kp, Kd);
 
     // start logging
     __HAL_TIM_SET_COUNTER(&HTIM_LOG, 0);
