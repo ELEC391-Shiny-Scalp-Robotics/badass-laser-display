@@ -1299,23 +1299,6 @@ void ParseCommand(void)
         {
             NVIC_SystemReset();
         }
-        // else if (StringStartsWith((char *)Uart1.rxBuffer, "help"))
-        // {
-        //     SerialPrint("move <x: double> <y: double> <steps: int>\n");
-        //     SerialPrint("laser <on/off>\n");
-        //     SerialPrint("led <1-4> <0/1>\n");
-        //     SerialPrint("rgb <0-1> <r> <g> <b>\n");
-        //     SerialPrint("rom dump\n");
-        //     SerialPrint("rom write <addr: hex> <data: hex>\n");
-        //     SerialPrint("rom read <addr: hex>\n");
-        //     SerialPrint("mode test\n");
-        //     SerialPrint("mode init\n");
-        //     SerialPrint("mode serial\n");
-        //     SerialPrint("mode rb\n");
-        //     SerialPrint("mode rgb\n");
-        //     SerialPrint("hardware reset <code>\n");
-        //     status = SILENT;
-        // }
         else
         {
             status = INVALID_COMMAND;
