@@ -874,14 +874,17 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
         // control loop
 
-        // int16_t encoderx = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
-        // int16_t encodery = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
+        // MotorX.error = MotorX.target - (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
+        // MotorY.error = MotorY.target - (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
 
-        // MotorX.error = MotorX.target - encoderx;
-        // MotorY.error = MotorY.target - encodery;
+        // int16_t speedX = (int16_t)(MotorX.error * Kp + (MotorX.error - MotorX.lastError) * 5000.0 * Kd);
+        // int16_t speedY = (int16_t)(MotorY.error * Kp + (MotorY.error - MotorY.lastError) * 5000.0 * Kd);
 
-        // MotorSetSpeed(X, MotorX.error);
-        // MotorSetSpeed(Y, MotorY.error);
+        // MotorSetSpeed(X, speedX);
+        // MotorSetSpeed(Y, speedY);
+
+        // MotorX.lastError = MotorX.error;
+        // MotorY.lastError = MotorY.error;
 
         // HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
     }
@@ -1460,12 +1463,26 @@ void MotorSetSpeed(AxisTypeDef axis, int16_t speed)
     if (speed >= 0)
     {
         pulseA = 0;
-        pulseB = speed;
+        if (speed < 4800)
+        {
+            pulseB = speed;
+        }
+        else
+        {
+            pulseB = 4800;
+        }
     }
     else
     {
-        pulseA = -speed;
         pulseB = 0;
+        if (speed > -4800)
+        {
+            pulseA = -speed;
+        }
+        else
+        {
+            pulseA = -4800;
+        }
     }
 
     switch (axis)
