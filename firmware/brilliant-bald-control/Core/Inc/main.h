@@ -157,6 +157,7 @@ void Error_Handler(void);
 #define ENCODER_RANGE 2040 // ~15 degrees
 #define ENCODER_CPR 48960
 #define NORM_DIST 3.73205080757 // 1 / tan(2pi * range / cpr)
+#define INV_NORM_DIST 0.267949192431
 #define RAD_PER_STEPS 2.5666606647E-4
 #define STEPS_PER_RAD 3896.11300689
 

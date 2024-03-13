@@ -1539,7 +1539,6 @@ void Step(void)
 
     // start logging
     __HAL_TIM_SET_COUNTER(&HTIM_LOG, 0);
-    __HAL_TIM_CLEAR_IT(&HTIM_LOG, TIM_IT_UPDATE);
     HAL_TIM_Base_Start_IT(&HTIM_LOG);
 
     HAL_Delay(500);
@@ -1569,8 +1568,8 @@ void LaserTurn(LaserStateTypeDef state)
 void SetPos(double x, double y)
 {
     // calculate required encoder values
-    MotorX.target = (int16_t)(atan(x / NORM_DIST) * STEPS_PER_RAD);
-    MotorY.target = (int16_t)(atan(y / NORM_DIST) * STEPS_PER_RAD);
+    MotorX.target = (int16_t)(atan(x * INV_NORM_DIST) * STEPS_PER_RAD);
+    MotorY.target = (int16_t)(atan(y * INV_NORM_DIST) * STEPS_PER_RAD);
 
     int16_t xEncoder, yEncoder;
     double xError, yError;
