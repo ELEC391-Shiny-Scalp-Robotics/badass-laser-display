@@ -894,7 +894,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
     if (htim == &HTIM_LOG)
     {
-        SerialPrint("%hu %hd %hd\n", LogTime, (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX), (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
+        SerialPrint("%hu %hd %hd %hd %hd\n", LogTime, MotorX.target, (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX), MotorY.target, (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
         LogTime += 5;
     }
 }
