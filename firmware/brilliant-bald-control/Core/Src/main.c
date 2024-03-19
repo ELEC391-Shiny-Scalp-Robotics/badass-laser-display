@@ -1640,10 +1640,6 @@ void SetPos(double x, double y)
 
         xError = fabs(xError);
         yError = fabs(yError);
-
-        // SerialPrint("\ntarget x:%lf y:%lf\nencoder x:%hd y:%hd\nlaserpos x:%lf y:%lf\nerror x:%lf y:%lf\n", x, y, xEncoder, yEncoder, LaserPos.x, LaserPos.y, xError, yError);
-        // HAL_Delay(10);
-
     } while (!TimedOut && (xError > ErrorThreshold || yError > ErrorThreshold));
 }
 
