@@ -112,7 +112,7 @@ void EEPROMRead(uint8_t regAddr, uint8_t *pData, uint8_t size);
 void EEPROMWrite(uint8_t regAddr, uint8_t *pData, uint8_t size);
 void ParamsRead(void);
 void ParamsWrite(void);
-void MotorSetSpeed(AxisTypeDef axis, int16_t speed);
+void MotorSetSpeed(AxisTypeDef axis, int32_t speed);
 bool Home(void);
 void Step(void);
 void LaserTurn(LaserStateTypeDef state);
@@ -879,8 +879,26 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         MotorX.error = MotorX.target - (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
         MotorY.error = MotorY.target - (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
 
-        int16_t speedX = (int16_t)(MotorX.error * Kp + (MotorX.error - MotorX.lastError) * 5000.0 * Kd);
-        int16_t speedY = (int16_t)(MotorY.error * Kp + (MotorY.error - MotorY.lastError) * 5000.0 * Kd);
+        int32_t speedX = MotorX.error * Kp + (MotorX.error - MotorX.lastError) * 5000.0 * Kd;
+        int32_t speedY = MotorY.error * Kp + (MotorY.error - MotorY.lastError) * 5000.0 * Kd;
+
+        if (speedX > 4800)
+        {
+            speedX = 4800;
+        }
+        if (speedX < -4800)
+        {
+            speedX = -4800;
+        }
+
+        if (speedY > 4800)
+        {
+            speedY = 4800;
+        }
+        if (speedY < -4800)
+        {
+            speedY = -4800;
+        }
 
         MotorSetSpeed(X, speedX);
         MotorSetSpeed(Y, speedY);
@@ -899,7 +917,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
     if (htim == &HTIM_LOG)
     {
-        SerialPrint("%hu %hd %hd %hd %hd\n", LogTime, MotorX.target, (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX), MotorY.target, (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
+        SerialPrint("%hu %ld %d %ld %d\n", LogTime, MotorX.target, (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX), MotorY.target, (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
         LogTime += 5;
     }
 }
@@ -1076,7 +1094,7 @@ void ParseCommand(void)
         }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "pos"))
         {
-            SerialPrint("x: %hd\ny: %hd\n", (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX), (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
+            SerialPrint("x target: %ld x: %d\ny target: %ld y: %d\n", MotorX.target, (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX), MotorY.target, (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
             status = SILENT;
         }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "param"))
@@ -1447,33 +1465,19 @@ void ParamsWrite(void)
     EEPROMWrite(16, pageBuffer, 16);
 }
 
-void MotorSetSpeed(AxisTypeDef axis, int16_t speed)
+void MotorSetSpeed(AxisTypeDef axis, int32_t speed)
 {
     uint16_t pulseA, pulseB;
 
     if (speed >= 0)
     {
         pulseA = 0;
-        if (speed < 4800)
-        {
-            pulseB = speed;
-        }
-        else
-        {
-            pulseB = 4800;
-        }
+        pulseB = speed;
     }
     else
     {
         pulseB = 0;
-        if (speed > -4800)
-        {
-            pulseA = -speed;
-        }
-        else
-        {
-            pulseA = -4800;
-        }
+        pulseA = -speed;
     }
 
     switch (axis)
