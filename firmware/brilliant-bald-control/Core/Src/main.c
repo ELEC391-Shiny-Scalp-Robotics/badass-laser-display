@@ -113,7 +113,7 @@ void EEPROMWrite(uint8_t regAddr, uint8_t *pData, uint8_t size);
 void ParamsRead(void);
 void ParamsWrite(void);
 void MotorSetSpeed(AxisTypeDef axis, int16_t speed);
-void Home(void);
+bool Home(void);
 void Step(void);
 void LaserTurn(LaserStateTypeDef state);
 void SetPos(double x, double y);
@@ -1065,7 +1065,10 @@ void ParseCommand(void)
         }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "home"))
         {
-            Home();
+            if (!Home())
+            {
+                status = FAULT;
+            }
         }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "step"))
         {
@@ -1322,6 +1325,9 @@ void ParseCommand(void)
         case TIMEDOUT:
             SerialPrint("timed out\n");
             break;
+        case FAULT:
+            SerialPrint("fault\n");
+            break;
         }
 
         CommandReady = FALSE;
@@ -1483,37 +1489,80 @@ void MotorSetSpeed(AxisTypeDef axis, int16_t speed)
     }
 }
 
-void Home(void)
+bool Home(void)
 {
     LaserTurn(OFF);
 
     // stop control loop
     HAL_TIM_Base_Stop_IT(&HTIM_CTRL);
+
+    // stop motors
     MotorSetSpeed(X, 0);
     MotorSetSpeed(Y, 0);
+    HAL_Delay(500);
 
-    int16_t encoder;
+    int16_t encoder, start;
 
-    // home x
+    // check if x motor is spinning
+    start = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
+    MotorSetSpeed(X, -HomingSpeed);
+    HAL_Delay(100);
+    if ((int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX) == start)
+    {
+        MotorSetSpeed(X, 0);
+        return FALSE; // motor failed to spin
+    }
+
+    // home x axis
     MotorSetSpeed(X, HomingSpeed);
-    do
+    StartTimeout(5000);
+    while (1)
     {
         encoder = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
         HAL_Delay(100);
-    } while (encoder != (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX));
-    MotorSetSpeed(X, 0);
-    HAL_Delay(100);
+        if (TimedOut)
+        {
+            MotorSetSpeed(X, 0);
+            return FALSE; // timed out
+        }
+        else if (encoder == (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX))
+        {
+            MotorSetSpeed(X, 0);
+            break; // motor has reached home position
+        }
+    }
+    HAL_Delay(500);
     __HAL_TIM_SET_COUNTER(&HTIM_ENCX, ENCODER_CPR / 8 - MotorX.homeOffset);
 
-    // home y
+    // check if y motor is spinning
+    start = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
+    MotorSetSpeed(Y, HomingSpeed);
+    HAL_Delay(100);
+    if ((int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY) == start)
+    {
+        MotorSetSpeed(Y, 0);
+        return FALSE; // motor failed to spin
+    }
+
+    // home y axis
     MotorSetSpeed(Y, -HomingSpeed);
-    do
+    StartTimeout(5000);
+    while (1)
     {
         encoder = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
         HAL_Delay(100);
-    } while (encoder != (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
-    MotorSetSpeed(Y, 0);
-    HAL_Delay(100);
+        if (TimedOut)
+        {
+            MotorSetSpeed(Y, 0);
+            return FALSE; // timed out
+        }
+        else if (encoder == (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY))
+        {
+            MotorSetSpeed(Y, 0);
+            break; // motor has reached home position
+        }
+    }
+    HAL_Delay(500);
     __HAL_TIM_SET_COUNTER(&HTIM_ENCY, -(ENCODER_CPR / 8) - MotorY.homeOffset);
 
     // reset structs
@@ -1522,12 +1571,11 @@ void Home(void)
     MotorY.target = 0;
     MotorY.lastError = 0;
 
-    // restart control loop
-    HAL_TIM_Base_Start_IT(&HTIM_CTRL);
-
+    HAL_TIM_Base_Start_IT(&HTIM_CTRL); // restart control loop
     HAL_Delay(500);
-
     LaserTurn(ON);
+
+    return TRUE;
 }
 
 void Step(void)
@@ -1578,7 +1626,7 @@ void SetPos(double x, double y)
     int16_t xEncoder, yEncoder;
     double xError, yError;
 
-    // wait for error to be within threshold or time out
+    // wait for error to be within threshold or timeout
     do
     {
         xEncoder = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);

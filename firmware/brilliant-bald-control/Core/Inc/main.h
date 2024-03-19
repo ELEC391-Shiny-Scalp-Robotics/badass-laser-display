@@ -92,7 +92,8 @@ typedef enum ParseStatusTypeDef
     SILENT,
     INVALID_COMMAND,
     INVALID_ARGUMENT,
-    TIMEDOUT
+    TIMEDOUT,
+    FAULT
 } ParseStatusTypeDef;
 /* USER CODE END ET */
 
