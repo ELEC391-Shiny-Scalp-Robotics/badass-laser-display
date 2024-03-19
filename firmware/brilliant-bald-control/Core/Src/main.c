@@ -62,12 +62,12 @@ bool FSMIsParsing = FALSE;
 bool CommandReady = FALSE;
 bool TimedOut = FALSE;
 LaserPosStruct LaserPos = {0.0, 0.0};
-double Kp = 0;
-double Kd = 0;
-double ErrorThreshold = 0.3;
-uint16_t HomingSpeed = 400;
-uint16_t TimeoutPeriod = 10000;
-uint16_t LogTime = 0;
+double Kp;
+double Kd;
+double ErrorThreshold;
+uint16_t HomingSpeed;
+uint16_t MoveTimeoutPeriod;
+uint16_t LogTime;
 MotorStruct MotorX = {0, 0, 0, 0};
 MotorStruct MotorY = {0, 0, 0, 0};
 
@@ -1163,13 +1163,13 @@ void ParseCommand(void)
             {
                 pBuffer += sizeof("timeout");
 
-                if (sscanf(pBuffer, "%hu", &TimeoutPeriod) == 1)
+                if (sscanf(pBuffer, "%hu", &MoveTimeoutPeriod) == 1)
                 {
-                    SerialPrint("timeout <- %hu\n", TimeoutPeriod);
+                    SerialPrint("timeout <- %hu\n", MoveTimeoutPeriod);
                 }
                 else
                 {
-                    SerialPrint("timeout: %hu\n", TimeoutPeriod);
+                    SerialPrint("timeout: %hu\n", MoveTimeoutPeriod);
                 }
                 status = SILENT;
             }
@@ -1189,7 +1189,7 @@ void ParseCommand(void)
             }
             else
             {
-                SerialPrint("kp: %lf\nkd: %lf\nhoming speed: %hu\noffset x: %hd\noffset y: %hd\ntimeout: %hu\nerror threshold: %lf", Kp, Kd, HomingSpeed, MotorX.homeOffset, MotorY.homeOffset, TimeoutPeriod, ErrorThreshold);
+                SerialPrint("kp: %lf\nkd: %lf\nhoming speed: %hu\noffset x: %hd\noffset y: %hd\ntimeout: %hu\nerror threshold: %lf", Kp, Kd, HomingSpeed, MotorX.homeOffset, MotorY.homeOffset, MoveTimeoutPeriod, ErrorThreshold);
                 status = SILENT;
             }
         }
@@ -1390,7 +1390,7 @@ void EEPROMWrite(uint8_t regAddr, uint8_t *pData, uint8_t size)
  * 24..25: HomingSpeed (uint16_t)
  * 26..27: MotorX.homeOffset (int16_t)
  * 28..29: MotorY.homeOffset (int16_t)
- * 30..31: TimeoutPeriod (uint16_t)
+ * 30..31: MoveTimeoutPeriod (uint16_t)
  */
 
 void ParamsRead(void)
@@ -1411,7 +1411,7 @@ void ParamsRead(void)
         ((uint8_t *)&HomingSpeed)[i] = readBuffer[i + 24];
         ((uint8_t *)&MotorX.homeOffset)[i] = readBuffer[i + 2 + 24];
         ((uint8_t *)&MotorY.homeOffset)[i] = readBuffer[i + 4 + 24];
-        ((uint8_t *)&TimeoutPeriod)[i] = readBuffer[i + 6 + 24];
+        ((uint8_t *)&MoveTimeoutPeriod)[i] = readBuffer[i + 6 + 24];
     }
 }
 
@@ -1436,7 +1436,7 @@ void ParamsWrite(void)
         pageBuffer[i + 8] = ((uint8_t *)&HomingSpeed)[i];
         pageBuffer[i + 2 + 8] = ((uint8_t *)&MotorX.homeOffset)[i];
         pageBuffer[i + 4 + 8] = ((uint8_t *)&MotorY.homeOffset)[i];
-        pageBuffer[i + 6 + 8] = ((uint8_t *)&TimeoutPeriod)[i];
+        pageBuffer[i + 6 + 8] = ((uint8_t *)&MoveTimeoutPeriod)[i];
     }
     EEPROMWrite(16, pageBuffer, 16);
 }
@@ -1606,7 +1606,7 @@ void LineTo(double x, double y, uint16_t steps)
     double yDistance = y - startPos.y;
 
     // start timeout timer
-    StartTimeout(TimeoutPeriod);
+    StartTimeout(MoveTimeoutPeriod);
 
     // interpolate between start and end position
     for (int i = 1; i <= steps && !TimedOut; i++)
@@ -1619,7 +1619,7 @@ void StartTimeout(uint16_t period)
 {
     TimedOut = FALSE;
     __HAL_TIM_SET_COUNTER(&HTIM_TIMEOUT, 0);
-    __HAL_TIM_SET_AUTORELOAD(&HTIM_TIMEOUT, period - 1);
+    __HAL_TIM_SET_AUTORELOAD(&HTIM_TIMEOUT, period * 10 - 1);
     __HAL_TIM_CLEAR_IT(&HTIM_TIMEOUT, TIM_IT_UPDATE);
     HAL_TIM_Base_Start_IT(&HTIM_TIMEOUT);
 }
