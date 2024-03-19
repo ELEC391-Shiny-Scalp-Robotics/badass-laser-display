@@ -60,7 +60,7 @@ UARTStruct Uart1;
 FSMStateTypeDef FSMState = SERIAL;
 bool FSMIsParsing = FALSE;
 bool CommandReady = FALSE;
-bool MoveTimedOut = FALSE;
+bool TimedOut = FALSE;
 LaserPosStruct LaserPos = {0.0, 0.0};
 double Kp = 0;
 double Kd = 0;
@@ -118,6 +118,7 @@ void Step(void);
 void LaserTurn(LaserStateTypeDef state);
 void SetPos(double x, double y);
 void LineTo(double x, double y, uint16_t steps);
+void StartTimeout(uint16_t period);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -174,6 +175,8 @@ int main(void)
 
     HAL_UART_Receive_IT(&huart1, &Uart1.rxByte, 1);
 
+    ParamsRead();
+
     {
         uint8_t configByte;
         EEPROMRead(CONFIG_BYTE_ADDR, &configByte, 1);
@@ -184,7 +187,6 @@ int main(void)
         }
         else
         {
-            ParamsRead();
             Home();
         }
     }
@@ -891,7 +893,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
     if (htim == &HTIM_TIMEOUT)
     {
-        MoveTimedOut = TRUE;
+        TimedOut = TRUE;
         HAL_TIM_Base_Stop_IT(&HTIM_TIMEOUT);
     }
 
@@ -962,7 +964,7 @@ void ParseCommand(void)
             if (sscanf((char *)&Uart1.rxBuffer[sizeof("move")], "%lf %lf %hu", &x, &y, &steps) == 3)
             {
                 LineTo(x, y, steps);
-                if (MoveTimedOut)
+                if (TimedOut)
                 {
                     status = TIMEDOUT;
                 }
@@ -1594,7 +1596,7 @@ void SetPos(double x, double y)
         // SerialPrint("\ntarget x:%lf y:%lf\nencoder x:%hd y:%hd\nlaserpos x:%lf y:%lf\nerror x:%lf y:%lf\n", x, y, xEncoder, yEncoder, LaserPos.x, LaserPos.y, xError, yError);
         // HAL_Delay(10);
 
-    } while (!MoveTimedOut && (xError > ErrorThreshold || yError > ErrorThreshold));
+    } while (!TimedOut && (xError > ErrorThreshold || yError > ErrorThreshold));
 }
 
 void LineTo(double x, double y, uint16_t steps)
@@ -1604,16 +1606,22 @@ void LineTo(double x, double y, uint16_t steps)
     double yDistance = y - startPos.y;
 
     // start timeout timer
-    MoveTimedOut = FALSE;
-    __HAL_TIM_SET_COUNTER(&HTIM_TIMEOUT, 0);
-    __HAL_TIM_CLEAR_IT(&HTIM_TIMEOUT, TIM_IT_UPDATE);
-    HAL_TIM_Base_Start_IT(&HTIM_TIMEOUT);
+    StartTimeout(TimeoutPeriod);
 
     // interpolate between start and end position
-    for (int i = 1; i <= steps && !MoveTimedOut; i++)
+    for (int i = 1; i <= steps && !TimedOut; i++)
     {
         SetPos(startPos.x + (double)i / steps * xDistance, startPos.y + (double)i / steps * yDistance);
     }
+}
+
+void StartTimeout(uint16_t period)
+{
+    TimedOut = FALSE;
+    __HAL_TIM_SET_COUNTER(&HTIM_TIMEOUT, 0);
+    __HAL_TIM_SET_AUTORELOAD(&HTIM_TIMEOUT, period - 1);
+    __HAL_TIM_CLEAR_IT(&HTIM_TIMEOUT, TIM_IT_UPDATE);
+    HAL_TIM_Base_Start_IT(&HTIM_TIMEOUT);
 }
 
 /* USER CODE END 4 */
