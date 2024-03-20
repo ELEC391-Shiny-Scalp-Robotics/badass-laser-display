@@ -79,9 +79,10 @@ typedef enum FSMStateTypeDef
     SERIAL,
     MEMORY_SQUARE,
     MEMORY_TRIANGLE,
+    MEMORY_CIRCLE,
     MEMORY_CUBE,
     MEMORY_STAR,
-    MEMORY_PATTERN5,
+    MEMORY_PP,
     RGB,
     RB
 } FSMStateTypeDef;

@@ -256,6 +256,34 @@ int main(void)
             } while (FSMState == MEMORY_TRIANGLE);
         }
 
+        if (FSMState == MEMORY_CIRCLE)
+        {
+            SerialPrint("circle mode\n");
+
+            do
+            {
+                int i;
+                for (i = 0; i < 90; i++)
+                {
+                    LineTo(cos((double)i / 180.0 * M_PI) - 0.12, sin((double)i / 180.0 * M_PI) + 0.12, 1);
+                }
+                for (i = 90; i < 180; i++)
+                {
+                    LineTo(cos((double)i / 180.0 * M_PI) - 0.12, sin((double)i / 180.0 * M_PI) - 0.12, 1);
+                }
+                for (i = 180; i < 270; i++)
+                {
+                    LineTo(cos((double)i / 180.0 * M_PI) + 0.12, sin((double)i / 180.0 * M_PI) - 0.12, 1);
+                }
+                for (i = 270; i < 360; i++)
+                {
+                    LineTo(cos((double)i / 180.0 * M_PI) + 0.12, sin((double)i / 180.0 * M_PI) + 0.12, 1);
+                }
+
+                ParseCommand();
+            } while (FSMState == MEMORY_CIRCLE);
+        }
+
         if (FSMState == MEMORY_STAR)
         {
             SerialPrint("star mode\n");
@@ -267,14 +295,34 @@ int main(void)
 
             do
             {
-                LineTo(0.0, 1.0, 4);
-                LineTo(1.0, -1.0, 4);
-                LineTo(-1.0, 0.3, 4);
-                LineTo(1.0, 0.3, 4);
-                LineTo(-1.0, -1.0, 4);
+                LineTo(0.0, 1.0, 1);
+                LineTo(1.0, -1.0, 1);
+                LineTo(-1.0, 0.3, 1);
+                LineTo(1.0, 0.3, 1);
+                LineTo(-1.0, -1.0, 1);
 
                 ParseCommand();
             } while (FSMState == MEMORY_STAR);
+        }
+
+        if (FSMState == MEMORY_PP)
+        {
+            SerialPrint("pp mode\n");
+
+            do
+            {
+                LineTo(1.0, 0.5, 1);
+                LineTo(1.0, -0.5, 1);
+                LineTo(0.0, -0.5, 1);
+                LineTo(0.0, -1.0, 1);
+                LineTo(-0.5, -1.0, 1);
+                LineTo(-0.5, 0.0, 1);
+                LineTo(-0.5, -1.0, 1);
+                LineTo(-1.0, -1.0, 1);
+                LineTo(-1.0, 0.5, 1);
+
+                ParseCommand();
+            } while (FSMState == MEMORY_PP);
         }
 
         if (FSMState == RB)
@@ -1338,9 +1386,17 @@ void ParseCommand(void)
             {
                 FSMState = MEMORY_TRIANGLE;
             }
+            else if (StringStartsWith(pBuffer, "circle"))
+            {
+                FSMState = MEMORY_CIRCLE;
+            }
             else if (StringStartsWith(pBuffer, "star"))
             {
                 FSMState = MEMORY_STAR;
+            }
+            else if (StringStartsWith(pBuffer, "pp"))
+            {
+                FSMState = MEMORY_PP;
             }
             else if (StringStartsWith(pBuffer, "rb"))
             {
