@@ -1063,11 +1063,10 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 
 void ParseCommand(void)
 {
-    ParseStatusTypeDef status = OK;
-
     if (CommandReady)
     {
         FSMIsParsing = TRUE;
+        ParseStatusTypeDef status = OK;
 
         if (StringStartsWith((char *)Uart1.rxBuffer, "move"))
         {
