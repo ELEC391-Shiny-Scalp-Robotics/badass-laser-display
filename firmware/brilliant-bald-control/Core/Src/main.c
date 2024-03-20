@@ -1698,7 +1698,7 @@ void SetPos(double x, double y)
 
         xError = fabs(xError);
         yError = fabs(yError);
-    } while (!TimedOut && (xError > ErrorThreshold || yError > ErrorThreshold));
+    } while (!CommandReady && !TimedOut && (xError > ErrorThreshold || yError > ErrorThreshold));
 }
 
 void LineTo(double x, double y, uint16_t steps)
