@@ -80,7 +80,7 @@ typedef enum FSMStateTypeDef
     MEMORY_SQUARE,
     MEMORY_TRIANGLE,
     MEMORY_CUBE,
-    MEMORY_PATTERN4,
+    MEMORY_STAR,
     MEMORY_PATTERN5,
     RGB,
     RB
