@@ -268,6 +268,9 @@ int main(void)
                 }
                 ParseCommand();
             } while (FSMState == RB);
+
+            WsSetAll(0, 0, 0);
+            WsShow();
         }
 
         if (FSMState == RGB)
@@ -282,6 +285,9 @@ int main(void)
                 }
                 ParseCommand();
             } while (FSMState == RGB);
+
+            WsSetAll(0, 0, 0);
+            WsShow();
         }
         /* USER CODE END WHILE */
 
