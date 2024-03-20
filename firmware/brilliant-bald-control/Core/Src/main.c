@@ -237,6 +237,46 @@ int main(void)
             } while (FSMState == MEMORY_SQUARE);
         }
 
+        if (FSMState == MEMORY_TRIANGLE)
+        {
+            SerialPrint("triangle mode\n");
+
+            LaserTurn(OFF);
+            HAL_TIM_Base_Start_IT(&HTIM_CTRL);
+            LineTo(0.0, 1.0, 1);
+            LaserTurn(ON);
+
+            do
+            {
+                LineTo(0.0, 1.0, 4);
+                LineTo(1, -1, 4);
+                LineTo(-1, -1, 4);
+
+                ParseCommand();
+            } while (FSMState == MEMORY_TRIANGLE);
+        }
+
+        if (FSMState == MEMORY_STAR)
+        {
+            SerialPrint("star mode\n");
+
+            LaserTurn(OFF);
+            HAL_TIM_Base_Start_IT(&HTIM_CTRL);
+            LineTo(0.0, 1.0, 1);
+            LaserTurn(ON);
+
+            do
+            {
+                LineTo(0.0, 1.0, 4);
+                LineTo(1.0, -1.0, 4);
+                LineTo(-1.0, 0.3, 4);
+                LineTo(1.0, 0.3, 4);
+                LineTo(-1.0, -1.0, 4);
+
+                ParseCommand();
+            } while (FSMState == MEMORY_STAR);
+        }
+
         if (FSMState == RB)
         {
             do
@@ -1293,6 +1333,14 @@ void ParseCommand(void)
             else if (StringStartsWith(pBuffer, "square"))
             {
                 FSMState = MEMORY_SQUARE;
+            }
+            else if (StringStartsWith(pBuffer, "triangle"))
+            {
+                FSMState = MEMORY_TRIANGLE;
+            }
+            else if (StringStartsWith(pBuffer, "star"))
+            {
+                FSMState = MEMORY_STAR;
             }
             else if (StringStartsWith(pBuffer, "rb"))
             {
