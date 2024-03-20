@@ -221,11 +221,6 @@ int main(void)
         {
             SerialPrint("square mode\n");
 
-            LaserTurn(OFF);
-            HAL_TIM_Base_Start_IT(&HTIM_CTRL);
-            LineTo(-1.0, -1.0, 1);
-            LaserTurn(ON);
-
             do
             {
                 LineTo(-1.0, 1.0, 1);
@@ -241,16 +236,11 @@ int main(void)
         {
             SerialPrint("triangle mode\n");
 
-            LaserTurn(OFF);
-            HAL_TIM_Base_Start_IT(&HTIM_CTRL);
-            LineTo(0.0, 1.0, 1);
-            LaserTurn(ON);
-
             do
             {
-                LineTo(0.0, 1.0, 4);
-                LineTo(1, -1, 4);
-                LineTo(-1, -1, 4);
+                LineTo(0.0, 1.0, 3);
+                LineTo(1, -1, 3);
+                LineTo(-1, -1, 3);
 
                 ParseCommand();
             } while (FSMState == MEMORY_TRIANGLE);
@@ -288,18 +278,13 @@ int main(void)
         {
             SerialPrint("star mode\n");
 
-            LaserTurn(OFF);
-            HAL_TIM_Base_Start_IT(&HTIM_CTRL);
-            LineTo(0.0, 1.0, 1);
-            LaserTurn(ON);
-
             do
             {
-                LineTo(0.0, 1.0, 1);
-                LineTo(1.0, -1.0, 1);
-                LineTo(-1.0, 0.3, 1);
-                LineTo(1.0, 0.3, 1);
-                LineTo(-1.0, -1.0, 1);
+                LineTo(0.0, 1.0, 3);
+                LineTo(1.0, -1.0, 3);
+                LineTo(-1.0, 0.3, 3);
+                LineTo(1.0, 0.3, 3);
+                LineTo(-1.0, -1.0, 3);
 
                 ParseCommand();
             } while (FSMState == MEMORY_STAR);
