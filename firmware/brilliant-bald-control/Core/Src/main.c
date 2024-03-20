@@ -1066,6 +1066,7 @@ void ParseCommand(void)
     if (CommandReady)
     {
         FSMIsParsing = TRUE;
+        CommandReady = FALSE;
         ParseStatusTypeDef status = OK;
 
         if (StringStartsWith((char *)Uart1.rxBuffer, "move"))
@@ -1457,7 +1458,6 @@ void ParseCommand(void)
             break;
         }
 
-        CommandReady = FALSE;
         FSMIsParsing = FALSE;
     }
 }
