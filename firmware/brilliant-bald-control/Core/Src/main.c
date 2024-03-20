@@ -1711,7 +1711,7 @@ void LineTo(double x, double y, uint16_t steps)
     StartTimeout(MoveTimeoutPeriod);
 
     // interpolate between start and end position
-    for (int i = 1; i <= steps && !TimedOut; i++)
+    for (int i = 1; i <= steps && !TimedOut && !CommandReady; i++)
     {
         SetPos(startPos.x + (double)i / steps * xDistance, startPos.y + (double)i / steps * yDistance);
     }
