@@ -955,8 +955,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
         // control loop
 
-        MotorX.error = MotorX.target - (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
-        MotorY.error = MotorY.target - (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
+        MotorX.error = MotorX.target - (int32_t)((int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX));
+        MotorY.error = MotorY.target - (int32_t)((int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
 
         int32_t speedX = MotorX.error * Kp + (MotorX.error - MotorX.lastError) * 5000.0 * Kd;
         int32_t speedY = MotorY.error * Kp + (MotorY.error - MotorY.lastError) * 5000.0 * Kd;
@@ -1289,7 +1289,7 @@ void ParseCommand(void)
             }
             else
             {
-                SerialPrint("kp: %lf\nkd: %lf\nhoming speed: %hu\noffset x: %hd\noffset y: %hd\ntimeout: %hu\nerror threshold: %lf", Kp, Kd, HomingSpeed, MotorX.homeOffset, MotorY.homeOffset, MoveTimeoutPeriod, ErrorThreshold);
+                SerialPrint("kp: %lf\nkd: %lf\nhoming speed: %hu\noffset x: %hd\noffset y: %hd\ntimeout: %hu\nerror threshold: %lf\n", Kp, Kd, HomingSpeed, MotorX.homeOffset, MotorY.homeOffset, MoveTimeoutPeriod, ErrorThreshold);
                 status = SILENT;
             }
         }
@@ -1680,12 +1680,12 @@ void Step(void)
 {
     LaserTurn(OFF);
 
+    SerialPrint("Kp: %lf Kd: %lf\n", Kp, Kd);
+    
     LogTime = 0;
     MotorX.target = -ENCODER_RANGE;
     MotorY.target = -ENCODER_RANGE;
     HAL_Delay(1000);
-
-    SerialPrint("Kp: %lf Kd: %lf\n", Kp, Kd);
 
     // start logging
     __HAL_TIM_SET_COUNTER(&HTIM_LOG, 0);
