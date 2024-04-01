@@ -49,6 +49,9 @@ typedef struct LaserPosStruct
 
 typedef struct MotorStruct
 {
+    int32_t position;
+    int32_t lastPosition;
+    int32_t positionBias;
     int32_t target;
     int32_t error;
     int32_t lastError;

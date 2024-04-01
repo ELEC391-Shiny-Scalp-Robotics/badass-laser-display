@@ -61,15 +61,16 @@ FSMStateTypeDef FSMState = SERIAL;
 bool FSMIsParsing = FALSE;
 bool CommandReady = FALSE;
 bool TimedOut = FALSE;
-LaserPosStruct LaserPos = {0.0, 0.0};
+bool ControlOn = FALSE;
+LaserPosStruct LaserPos = {0};
 double Kp;
 double Kd;
 double ErrorThreshold;
 uint16_t HomingSpeed;
 uint16_t MoveTimeoutPeriod;
 uint16_t LogTime;
-MotorStruct MotorX = {0, 0, 0, 0};
-MotorStruct MotorY = {0, 0, 0, 0};
+MotorStruct MotorX = {0};
+MotorStruct MotorY = {0};
 
 const uint8_t COS256[256] = {
     255, 255, 255, 255, 254, 254, 254, 253, 253, 252, 251, 250, 249, 249, 248, 246,
@@ -167,6 +168,8 @@ int main(void)
     /* USER CODE BEGIN 2 */
     HAL_TIM_Encoder_Start(&HTIM_ENCX, TIM_CHANNEL_ALL);
     HAL_TIM_Encoder_Start(&HTIM_ENCY, TIM_CHANNEL_ALL);
+
+    HAL_TIM_Base_Start_IT(&HTIM_CTRL);
 
     HAL_TIM_PWM_Start(&HTIM_MOT, TIM_CHANNEL_MOT_XA);
     HAL_TIM_PWM_Start(&HTIM_MOT, TIM_CHANNEL_MOT_XB);
@@ -953,37 +956,69 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     {
         // HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
 
+        int32_t posDelta;
+
+        int32_t xEncoder = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
+        int32_t yEncoder = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
+
+        posDelta = xEncoder - MotorX.lastPosition;
+        if (posDelta > 0x7fff)
+        {
+            MotorX.positionBias -= 0x10000;
+        }
+        else if (posDelta < -0x7fff)
+        {
+            MotorX.positionBias += 0x10000;
+        }
+        MotorX.position = xEncoder + MotorX.positionBias;
+        MotorX.lastPosition = xEncoder;
+
+        posDelta = yEncoder - MotorY.lastPosition;
+        if (posDelta > 0x7fff)
+        {
+            MotorY.positionBias -= 0x10000;
+        }
+        else if (posDelta < -0x7fff)
+        {
+            MotorY.positionBias += 0x10000;
+        }
+        MotorY.position = yEncoder + MotorY.positionBias;
+        MotorY.lastPosition = yEncoder;
+
         // control loop
 
-        MotorX.error = MotorX.target - (int32_t)((int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX));
-        MotorY.error = MotorY.target - (int32_t)((int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
-
-        int32_t speedX = MotorX.error * Kp + (MotorX.error - MotorX.lastError) * 5000.0 * Kd;
-        int32_t speedY = MotorY.error * Kp + (MotorY.error - MotorY.lastError) * 5000.0 * Kd;
-
-        if (speedX > 4800)
+        if (ControlOn)
         {
-            speedX = 4800;
-        }
-        if (speedX < -4800)
-        {
-            speedX = -4800;
-        }
+            MotorX.error = MotorX.target - MotorX.position;
+            MotorY.error = MotorY.target - MotorY.position;
 
-        if (speedY > 4800)
-        {
-            speedY = 4800;
-        }
-        if (speedY < -4800)
-        {
-            speedY = -4800;
-        }
+            int32_t speedX = MotorX.error * Kp + (MotorX.error - MotorX.lastError) * 5000.0 * Kd;
+            int32_t speedY = MotorY.error * Kp + (MotorY.error - MotorY.lastError) * 5000.0 * Kd;
 
-        MotorSetSpeed(X, speedX);
-        MotorSetSpeed(Y, speedY);
+            if (speedX > 4800)
+            {
+                speedX = 4800;
+            }
+            if (speedX < -4800)
+            {
+                speedX = -4800;
+            }
 
-        MotorX.lastError = MotorX.error;
-        MotorY.lastError = MotorY.error;
+            if (speedY > 4800)
+            {
+                speedY = 4800;
+            }
+            if (speedY < -4800)
+            {
+                speedY = -4800;
+            }
+
+            MotorSetSpeed(X, speedX);
+            MotorSetSpeed(Y, speedY);
+
+            MotorX.lastError = MotorX.error;
+            MotorY.lastError = MotorY.error;
+        }
 
         // HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
     }
@@ -996,7 +1031,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
     if (htim == &HTIM_LOG)
     {
-        SerialPrint("%hu %ld %d %ld %d\n", LogTime, MotorX.target, (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX), MotorY.target, (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
+        SerialPrint("%hu %ld %ld %ld %ld\n", LogTime, MotorX.target, MotorX.position, MotorY.target, MotorY.position);
         LogTime += 5;
     }
 }
@@ -1173,7 +1208,7 @@ void ParseCommand(void)
         }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "pos"))
         {
-            SerialPrint("x target: %ld x: %d\ny target: %ld y: %d\n", MotorX.target, (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX), MotorY.target, (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY));
+            SerialPrint("x target: %ld x: %ld\ny target: %ld y: %ld\n", MotorX.target, MotorX.position, MotorY.target, MotorY.position);
             status = SILENT;
         }
         else if (StringStartsWith((char *)Uart1.rxBuffer, "param"))
@@ -1402,11 +1437,11 @@ void ParseCommand(void)
 
             if (StringStartsWith(pBuffer, "on"))
             {
-                HAL_TIM_Base_Start_IT(&HTIM_CTRL);
+                ControlOn = TRUE;
             }
             else if (StringStartsWith(pBuffer, "off"))
             {
-                HAL_TIM_Base_Stop_IT(&HTIM_CTRL);
+                ControlOn = FALSE;
             }
             else
             {
@@ -1592,7 +1627,7 @@ bool Home(void)
     LaserTurn(OFF);
 
     // stop control loop
-    HAL_TIM_Base_Stop_IT(&HTIM_CTRL);
+    ControlOn = FALSE;
 
     // stop motors
     MotorSetSpeed(X, 0);
@@ -1602,10 +1637,10 @@ bool Home(void)
     int16_t encoder, start;
 
     // check if x motor is spinning
-    start = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
+    start = MotorX.position;
     MotorSetSpeed(X, -HomingSpeed);
     HAL_Delay(100);
-    if ((int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX) == start)
+    if (MotorX.position == start)
     {
         MotorSetSpeed(X, 0);
         return FALSE; // motor failed to spin
@@ -1616,14 +1651,14 @@ bool Home(void)
     StartTimeout(5000);
     while (1)
     {
-        encoder = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
+        encoder = MotorX.position;
         HAL_Delay(100);
         if (TimedOut)
         {
             MotorSetSpeed(X, 0);
             return FALSE; // timed out
         }
-        else if (encoder == (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX))
+        else if (encoder == MotorX.position)
         {
             MotorSetSpeed(X, 0);
             break; // motor has reached home position
@@ -1633,10 +1668,10 @@ bool Home(void)
     __HAL_TIM_SET_COUNTER(&HTIM_ENCX, ENCODER_CPR / 8 - MotorX.homeOffset);
 
     // check if y motor is spinning
-    start = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
+    start = MotorY.position;
     MotorSetSpeed(Y, HomingSpeed);
     HAL_Delay(100);
-    if ((int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY) == start)
+    if (MotorY.position == start)
     {
         MotorSetSpeed(Y, 0);
         return FALSE; // motor failed to spin
@@ -1647,14 +1682,14 @@ bool Home(void)
     StartTimeout(5000);
     while (1)
     {
-        encoder = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
+        encoder = MotorY.position;
         HAL_Delay(100);
         if (TimedOut)
         {
             MotorSetSpeed(Y, 0);
             return FALSE; // timed out
         }
-        else if (encoder == (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY))
+        else if (encoder == MotorY.position)
         {
             MotorSetSpeed(Y, 0);
             break; // motor has reached home position
@@ -1664,12 +1699,18 @@ bool Home(void)
     __HAL_TIM_SET_COUNTER(&HTIM_ENCY, -(ENCODER_CPR / 8) - MotorY.homeOffset);
 
     // reset structs
+    MotorX.position = 0;
+    MotorX.lastPosition = 0;
+    MotorX.positionBias = 0;
     MotorX.target = 0;
     MotorX.lastError = 0;
+    MotorY.position = 0;
+    MotorY.lastPosition = 0;
+    MotorY.positionBias = 0;
     MotorY.target = 0;
     MotorY.lastError = 0;
 
-    HAL_TIM_Base_Start_IT(&HTIM_CTRL); // restart control loop
+    ControlOn = TRUE; // restart control loop
     HAL_Delay(500);
     LaserTurn(ON);
 
@@ -1681,7 +1722,7 @@ void Step(void)
     LaserTurn(OFF);
 
     SerialPrint("Kp: %lf Kd: %lf\n", Kp, Kd);
-    
+
     LogTime = 0;
     MotorX.target = -ENCODER_RANGE;
     MotorY.target = -ENCODER_RANGE;
@@ -1727,8 +1768,8 @@ void SetPos(double x, double y)
     // wait for error to be within threshold or timeout
     do
     {
-        xEncoder = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCX);
-        yEncoder = (int16_t)__HAL_TIM_GET_COUNTER(&HTIM_ENCY);
+        xEncoder = MotorX.position;
+        yEncoder = MotorY.position;
 
         LaserPos.x = tan(xEncoder * RAD_PER_STEPS) * NORM_DIST;
         LaserPos.y = tan(yEncoder * RAD_PER_STEPS) * NORM_DIST;
